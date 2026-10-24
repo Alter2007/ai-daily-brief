@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking } from '../src/lib.mjs';
+import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems } from '../src/lib.mjs';
 import { collectGithub } from '../src/sources.mjs';
 import { runOnce } from '../src/pipeline.mjs';
 
@@ -190,6 +190,45 @@ test('hasBreaking 识别多种写法', () => {
   assert.equal(hasBreaking('fix!: 不兼容改动'), true);
   assert.equal(hasBreaking('breaking: changed api'), true);
   assert.equal(hasBreaking('普通修复'), false);
+});
+
+/* ---------------- 选择与去重 ---------------- */
+
+const mk = (title, extra = {}) => ({
+  title,
+  summary: '发布 新模型',
+  level: 'first-party',
+  date: '2026-10-24T08:00:00Z',
+  source: 's1',
+  ...extra,
+});
+
+test('selectItems 跳过已见过的条目，不重复推送', () => {
+  const a = mk('OpenAI 发布 A');
+  const b = mk('OpenAI 发布 B');
+  const seen = { [fingerprint(a)]: Date.now() };
+  const { picked, skipped } = selectItems([a, b], { seen, topic: T, maxItems: 5, minScore: 0 });
+  assert.equal(picked.length, 1);
+  assert.equal(picked[0].title, 'OpenAI 发布 B');
+  assert.equal(skipped.length, 1);
+  assert.equal(skipped[0].reason, 'duplicate');
+});
+
+test('selectItems 同一次运行内按指纹去重', () => {
+  const { picked } = selectItems([mk('发布 X！'), mk('发布 x')], { topic: T, maxItems: 5, minScore: 0 });
+  assert.equal(picked.length, 1, '归一化后同标题只留一条');
+});
+
+test('selectItems 按分数截断到 maxItems', () => {
+  const items = [mk('发布 高分', { level: 'first-party' }), mk('发布 中分', { level: 'second-hand' }), mk('发布 低分', { level: 'second-hand', date: '2026-09-01T00:00:00Z' })];
+  const { picked } = selectItems(items, { topic: T, maxItems: 2, minScore: 0 });
+  assert.equal(picked.length, 2);
+  assert.ok(picked[0].score >= picked[1].score);
+});
+
+test('selectItems 过滤掉低于门槛的条目', () => {
+  const { picked } = selectItems([mk('毫不相关的内容', { level: 'second-hand' })], { topic: T, minScore: 40 });
+  assert.equal(picked.length, 0);
 });
 
 /* ---------------- 端到端（离线） ---------------- */

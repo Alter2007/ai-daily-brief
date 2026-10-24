@@ -202,6 +202,35 @@ export function score(item, topic, now = Date.now()) {
   return Math.max(0, s);
 }
 
+/** 打分 + 排序 + 去重 + 截断。纯函数，便于测试。 */
+export function selectItems(items, opts = {}) {
+  const { seen = {}, maxItems = 5, minScore = 40, topic = { buzz: [], negative: [] }, now = Date.now() } = opts;
+
+  const scored = items
+    .map((it) => ({
+      ...it,
+      score: score(it, topic, now),
+      tags: it.tags || [String(it.source || '').startsWith('arxiv') ? '技术' : pickTag(it)],
+    }))
+    .filter((it) => it.score >= minScore)
+    .sort((a, b) => b.score - a.score || String(b.date).localeCompare(String(a.date)));
+
+  const picked = [];
+  const seenNow = new Set();
+  const skipped = [];
+  for (const it of scored) {
+    const fp = fingerprint(it);
+    if (seen[fp] || seenNow.has(fp)) {
+      skipped.push({ title: it.title, reason: 'duplicate' });
+      continue;
+    }
+    seenNow.add(fp);
+    picked.push(it);
+    if (picked.length >= maxItems) break;
+  }
+  return { scored, picked, skipped };
+}
+
 /* ---------------- 去重 ---------------- */
 
 export const fingerprint = (item) =>

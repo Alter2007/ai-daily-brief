@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import {
   readJson, writeText, parseTopic, score, fingerprint, loadSeen,
-  renderWechat, renderMd, pickTag, sourceAllowed,
+  renderWechat, renderMd, pickTag, sourceAllowed, selectItems,
 } from './lib.mjs';
 import { COLLECTORS } from './sources.mjs';
 
@@ -80,29 +80,18 @@ export async function runOnce(opts = {}) {
   const seenPath = join(root, 'seen.json');
   const seen = dryRun ? {} : await loadSeen(seenPath, app.dedupe_days || 7);
 
-  const scored = items
-    .filter((it) => {
-      if (dryRun) return true;
-      const t = it.date ? Date.parse(it.date) : NaN;
-      return Number.isFinite(t) ? t >= cutoff : true;
-    })
-    .map((it) => ({
-      ...it,
-      score: score(it, topicRules),
-      tags: [String(it.source || '').startsWith('arxiv') ? '技术' : pickTag(it)],
-    }))
-    .filter((it) => it.score >= minScore)
-    .sort((a, b) => b.score - a.score || String(b.date).localeCompare(String(a.date)));
+  const filtered = items.filter((it) => {
+    if (dryRun) return true;
+    const t = it.date ? Date.parse(it.date) : NaN;
+    return Number.isFinite(t) ? t >= cutoff : true;
+  });
 
-  const picked = [];
-  const seenNow = new Set();
-  for (const it of scored) {
-    const fp = fingerprint(it);
-    if (seen[fp] || seenNow.has(fp)) continue;
-    seenNow.add(fp);
-    picked.push(it);
-    if (picked.length >= maxItems) break;
-  }
+  const { scored, picked, skipped } = selectItems(filtered, {
+    seen,
+    maxItems,
+    minScore,
+    topic: topicRules,
+  });
 
   /* ---- 渲染 ---- */
   const meta = {
@@ -157,6 +146,7 @@ export async function runOnce(opts = {}) {
     candidates: items.length,
     scored_pass: scored.length,
     items_kept: picked.length,
+    skipped_duplicates: skipped.length,
     min_score: minScore,
     duration_ms: duration,
     output: wechatPath,
