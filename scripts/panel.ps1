@@ -59,8 +59,27 @@ for ($i = 0; $i -lt 60; $i++) {
 }
 
 if ($ready) {
-  Say "    ready, opening browser ..." 'Green'
-  Start-Process $url
+  Say "    ready, opening panel window ..." 'Green'
+  $browsers = @(
+    'C:\Program Files\Google\Chrome\Application\chrome.exe',
+    'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+    'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+    'C:\Program Files\Microsoft\Edge\Application\msedge.exe'
+  ) | Where-Object { Test-Path $_ }
+
+  $opened = $false
+  foreach ($b in $browsers) {
+    try {
+      # --app opens a chromeless window: no address bar, no tabs, looks like a desktop app
+      Start-Process -FilePath $b -ArgumentList "--app=$url", "--window-size=1440,900"
+      $opened = $true
+      break
+    } catch { }
+  }
+  if (-not $opened) {
+    Say "    no Chrome/Edge found, using the default browser" 'DarkGray'
+    Start-Process $url
+  }
 } else {
   Say "[x] server did not come up. Last output above shows why." 'Red'
 }
