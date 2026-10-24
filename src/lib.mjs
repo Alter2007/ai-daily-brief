@@ -119,12 +119,23 @@ export function parseTopic(md) {
     return m ? m[1].split(/[,，\s]+/).map((x) => x.trim()).filter(Boolean) : [];
   };
 
+  // ## 权重  （可选，键值对；不写就用 DEFAULTS）
+  // base: 10
+  // per_hit: 10
+  const weightBlock = grab('权重');
+  const weights = {};
+  for (const line of weightBlock.split('\n')) {
+    const m = line.match(/^\s*([a-z_]+)\s*[:：]\s*(-?\d+(?:\.\d+)?)\s*$/i);
+    if (m) weights[m[1].toLowerCase()] = Number(m[2]);
+  }
+
   return {
     buzz: words(grab('加分词')),
     negative: words(grab('减分词')),
     audience,
-    firstPartyBonus: /20/.test(grab('一手源加成')) ? 20 : 15,
+    firstPartyBonus: weights.first_party ?? (/20/.test(grab('一手源加成')) ? 20 : 15),
     filter: { include: pickList('include'), exclude: pickList('exclude') },
+    weights,
   };
 }
 
@@ -159,20 +170,34 @@ export function hasBreaking(text = '') {
   return /BREAKING[ -]?CHANGE|BREAKING:|!:\s|\bbreaking\b/i.test(String(text));
 }
 
+export const DEFAULT_WEIGHTS = {
+  base: 10,
+  per_hit: 10,
+  hit_cap: 30,
+  zero_hit_penalty: -10,
+  negative_penalty: -25,
+  first_party: 15,
+  fresh_1d: 10,
+  fresh_3d: 5,
+};
+
 export function score(item, topic, now = Date.now()) {
+  const w = { ...DEFAULT_WEIGHTS, ...(topic.weights || {}) };
+  if (!('first_party' in (topic.weights || {}))) w.first_party = topic.firstPartyBonus ?? w.first_party;
+
   const text = (item.title + ' ' + (item.summary || '')).toLowerCase();
   let hits = 0;
-  for (const w of topic.buzz) if (w && text.includes(w.toLowerCase())) hits++;
+  for (const word of topic.buzz) if (word && text.includes(word.toLowerCase())) hits++;
 
-  let s = 10; // 基础分：格式完整，但不足以单独进简报
-  s += Math.min(hits * 10, 30);
-  if (hits === 0) s -= 10; // 与主题词零命中 → 视为不相关
-  for (const w of topic.negative) if (w && text.includes(w.toLowerCase())) s -= 25;
-  if (item.level === 'first-party') s += topic.firstPartyBonus;
+  let s = w.base;
+  s += Math.min(hits * w.per_hit, w.hit_cap);
+  if (hits === 0) s += w.zero_hit_penalty;
+  for (const word of topic.negative) if (word && text.includes(word.toLowerCase())) s += w.negative_penalty;
+  if (item.level === 'first-party') s += w.first_party;
 
   const age = item.date ? (now - Date.parse(item.date)) / 86400000 : 99;
-  if (age <= 1) s += 10;
-  else if (age <= 3) s += 5;
+  if (age <= 1) s += w.fresh_1d;
+  else if (age <= 3) s += w.fresh_3d;
 
   return Math.max(0, s);
 }

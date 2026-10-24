@@ -118,6 +118,29 @@ test('陈旧条目不拿新鲜度加分', () => {
   assert.ok(fresh > old);
 });
 
+test('主题里的权重覆盖默认值', () => {
+  const item = { title: '无关内容', summary: '', level: 'second-hand', date: '2026-10-24T08:00:00Z' };
+  const dflt = score(item, T, now); // 零命中 −10
+  const loose = parseTopic(`# 主题：宽松
+
+## 权重
+zero_hit_penalty: 0
+`);
+  const l = score(item, loose, now);
+  assert.equal(l - dflt, 10, `把零命中惩罚归零应恰好提高 10 分：${l} vs ${dflt}`);
+});
+
+test('权重可解析成数字', () => {
+  const t = parseTopic(`# 主题：x
+
+## 权重
+base: 5
+per_hit: 20
+`);
+  assert.equal(t.weights.base, 5);
+  assert.equal(t.weights.per_hit, 20);
+});
+
 /* ---------------- 去重指纹 ---------------- */
 
 test('标题归一化后指纹一致', () => {

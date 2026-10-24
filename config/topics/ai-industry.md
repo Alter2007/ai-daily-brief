@@ -36,3 +36,18 @@ English：rumor reportedly unconfirmed allegedly leak
 - 最多 5 条
 - 每条四行：发生了什么（含日期）/ 为什么重要 / 谁该看 / 原文链接
 - 同一事件 7 天内只报一次
+
+## 权重（可选，不写则用默认值）
+
+```yaml
+base: 10              # 基础分
+per_hit: 10           # 每个命中加分词
+hit_cap: 30           # 命中的总加分上限
+zero_hit_penalty: -10 # 一个词都没命中：视为不相关
+negative_penalty: -25 # 每个命中减分词（传闻类）
+first_party: 15       # 一手源加成
+fresh_1d: 10          # 1 天内
+fresh_3d: 5           # 3 天内
+```
+
+想把门槛调松：把 `zero_hit_penalty` 改成 0，或把 `app.json` 的 `min_score` 降到 30。
