@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "id": "arxiv-ai",
+      "name": "arXiv cs.AI",
+      "type": "arxiv",
+      "categories": ["cs.AI", "cs.CL"],
+      "max": 20,
+      "level": "first-party"
+    }
+  ]
+}

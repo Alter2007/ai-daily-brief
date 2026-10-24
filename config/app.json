@@ -1,0 +1,25 @@
+{
+  "schedule": {
+    "time": "08:00",
+    "timezone": "Asia/Shanghai",
+    "weekdays_only": false
+  },
+  "window_days": 3,
+  "max_items": 5,
+  "min_score": 40,
+  "dedupe_days": 7,
+  "default_topic": "ai-industry",
+  "language": "zh-CN",
+  "output": {
+    "dir": "output",
+    "formats": ["wechat", "md"]
+  },
+  "logging": {
+    "dir": "logs"
+  },
+  "sources": [
+    "config/sources/rss.json",
+    "config/sources/github.json",
+    "config/sources/arxiv.json"
+  ]
+}

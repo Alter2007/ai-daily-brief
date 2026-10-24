@@ -1,0 +1,34 @@
+{
+  "sources": [
+    {
+      "id": "google-ai",
+      "name": "Google AI Blog",
+      "type": "rss",
+      "url": "https://blog.google/technology/ai/rss/",
+      "level": "first-party"
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face Blog",
+      "type": "rss",
+      "url": "https://huggingface.co/blog/feed.xml",
+      "level": "first-party"
+    },
+    {
+      "id": "openai-news",
+      "name": "OpenAI News",
+      "type": "rss",
+      "url": "https://openai.com/news/rss.xml",
+      "level": "first-party",
+      "note": "若返回 403/404，运行日志会记为失败源，不影响其他源"
+    },
+    {
+      "id": "anthropic-news",
+      "name": "Anthropic News",
+      "type": "web",
+      "url": "https://www.anthropic.com/news",
+      "level": "first-party",
+      "note": "无公开 feed，code 模式跳过，agent 模式用 read_page 读"
+    }
+  ]
+}

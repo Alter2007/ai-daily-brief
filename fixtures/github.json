@@ -1,0 +1,18 @@
+[
+  {
+    "tag_name": "v5.2.0",
+    "name": "v5.2.0 — 支持流式工具调用",
+    "html_url": "https://github.com/example/repo/releases/tag/v5.2.0",
+    "published_at": "2026-10-23T12:00:00Z",
+    "draft": false,
+    "body": "feat: 支持流式工具调用；fix: 修复超时重试；breaking: 移除 v4 兼容层。"
+  },
+  {
+    "tag_name": "v5.1.1",
+    "name": "v5.1.1 — 文档与 CI 修正",
+    "html_url": "https://github.com/example/repo/releases/tag/v5.1.1",
+    "published_at": "2026-10-20T09:00:00Z",
+    "draft": false,
+    "body": "chore: 更新文档；ci: 调整流水线。"
+  }
+]

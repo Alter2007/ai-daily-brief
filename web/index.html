@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>每日简报助手</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --side:#f7f8fa; --bg:#f1f3f6; --card:#fff; --ink:#1f2329; --ink2:#5c636d; --ink3:#9aa1ab;
+    --line:#e6e8ec; --accent:#191c22; --chip:#f2f4f7; --blue:#2456d6;
+  }
+  html,body{height:100%}
+  body{
+    font-family:"Segoe UI","微软雅黑","Microsoft YaHei",system-ui,sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14px; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{display:flex;height:100vh}
+
+  /* ---------- 侧栏 ---------- */
+  .side{width:248px;flex:0 0 248px;background:var(--side);border-right:1px solid var(--line);
+        display:flex;flex-direction:column;padding:18px 14px}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 6px 22px}
+  .mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#2b3340,#4a5568);
+        color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;letter-spacing:.5px}
+  .brand .name{font-size:15px;font-weight:600;letter-spacing:.2px}
+  .brand .sub{font-size:11px;color:var(--ink3);margin-top:2px}
+  nav{display:flex;flex-direction:column;gap:2px}
+  .nav{display:flex;align-items:center;gap:10px;padding:9px 12px;border:0;background:none;
+       border-radius:9px;font:inherit;color:var(--ink2);cursor:pointer;text-align:left;position:relative}
+  .nav:hover{background:#eef0f4}
+  .nav.active{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+  .nav.active::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--accent)}
+  .nav svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;opacity:.85}
+
+  .side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+  .tips{font-size:11px;color:var(--ink3);line-height:1.9;padding:0 6px}
+  kbd{background:#eceff3;border:1px solid #e2e5ea;border-bottom-width:2px;border-radius:4px;
+      padding:0 4px;font:inherit;font-size:10px;color:var(--ink2)}
+  .user-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .user-row{display:flex;align-items:center;gap:9px}
+  .avatar{width:30px;height:30px;border-radius:50%;background:#e8ebf0;color:#4a5568;
+          display:grid;place-items:center;font-size:11px;font-weight:700}
+  .uname{font-size:13px;font-weight:600}
+  .usub{font-size:11px;color:var(--ink3);margin-top:1px}
+  .meter{height:4px;border-radius:4px;background:#eef0f4;margin:11px 0 7px;overflow:hidden}
+  .meter i{display:block;height:100%;border-radius:4px;background:#e2574c}
+  .ustat{font-size:11px;color:var(--ink2)}
+
+  /* ---------- 主区 ---------- */
+  main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .head{padding:26px 34px 0}
+  h1{font-size:21px;font-weight:700;letter-spacing:.2px}
+  .head p{font-size:12.5px;color:var(--ink3);margin-top:7px}
+
+  .tabs{display:flex;gap:6px;padding:18px 34px 0}
+  .tab{border:0;background:none;font:inherit;font-size:13px;color:var(--ink2);padding:7px 12px;
+       border-radius:8px;cursor:pointer}
+  .tab.active{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+
+  .bar{display:flex;gap:10px;padding:14px 34px 0}
+  .field{flex:1;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);
+         border-radius:11px;padding:0 14px;height:46px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .field input{flex:1;border:0;outline:0;font:inherit;font-size:13px;color:var(--ink);background:none}
+  .field input::placeholder{color:#aab1bb}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:11px;height:46px;padding:0 18px;
+       font:inherit;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .btn:hover{background:#fafbfc}
+  .btn.dark{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.dark:hover{background:#0f1216}
+
+  .toolbar{display:flex;align-items:center;gap:14px;padding:20px 34px 12px;font-size:12.5px;color:var(--ink2)}
+  .crumb{display:flex;align-items:center;gap:7px;font-weight:500;color:var(--ink)}
+  .toolbar .right{margin-left:auto;display:flex;gap:16px;align-items:center;color:var(--ink3)}
+  .toolbar .right span{cursor:pointer;display:flex;align-items:center;gap:5px}
+  .toolbar .right span:hover{color:var(--ink)}
+
+  .body{flex:1;margin:0 34px 0;background:#fff;border:1px solid var(--line);border-radius:14px;
+        overflow:auto;padding:6px 0 10px}
+  .row{display:flex;gap:14px;padding:16px 22px;border-bottom:1px solid #f0f2f5;align-items:flex-start}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:#fcfcfd}
+  .chk{width:16px;height:16px;border:1.5px solid #d3d8df;border-radius:4px;flex:0 0 16px;margin-top:3px;cursor:pointer}
+  .chk.on{background:var(--accent);border-color:var(--accent);position:relative}
+  .chk.on::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
+                 border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+  .num{width:22px;flex:0 0 22px;color:var(--ink3);font-size:12px;font-variant-numeric:tabular-nums;margin-top:3px}
+  .info{flex:1;min-width:0}
+  .title{font-size:14px;font-weight:600;line-height:1.5}
+  .chip{display:inline-block;font-size:10.5px;color:var(--blue);background:#eef3fd;
+        border-radius:5px;padding:1px 6px;margin-left:8px;vertical-align:2px;font-weight:600}
+  .why{font-size:12.5px;color:var(--ink2);margin-top:7px;line-height:1.6}
+  .who{font-size:11.5px;color:var(--ink3);margin-top:4px}
+  .src{font-size:11.5px;color:var(--blue);margin-top:6px;text-decoration:none;word-break:break-all}
+  .src:hover{text-decoration:underline}
+
+  .empty{height:100%;display:grid;place-items:center;text-align:center;padding:60px 20px}
+  .empty svg{width:76px;height:76px;stroke:#c9ced6;fill:none;stroke-width:1.4;margin-bottom:14px}
+  .empty h3{font-size:14px;font-weight:600;margin-bottom:6px}
+  .empty p{font-size:12.5px;color:var(--ink3)}
+
+  .bottom{display:flex;align-items:center;gap:12px;padding:14px 34px 22px}
+  .bottom .spacer{flex:1}
+  .stat{font-size:12px;color:var(--ink3)}
+
+  /* 表格（任务/信源） */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-weight:600;color:var(--ink3);font-size:11.5px;padding:12px 22px;
+     border-bottom:1px solid #eef0f4;background:#fcfcfd}
+  td{padding:13px 22px;border-bottom:1px solid #f4f5f8;vertical-align:top;color:var(--ink2)}
+  td.k{color:var(--ink);font-weight:500}
+  .ok{color:#0f7b5f;font-weight:600}
+  .bad{color:#c2453a;font-weight:600}
+  .warn{color:#b06a0a;font-weight:600}
+  .code{font-family:Consolas,monospace;font-size:11.5px;background:#f7f8fa;border-radius:5px;padding:2px 6px;color:#b32a4e}
+
+  .view{display:none;flex-direction:column;flex:1;overflow:hidden}
+  .view.on{display:flex}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="mark">AI</div>
+      <div>
+        <div class="name">每日简报助手</div>
+        <div class="sub">AI 行业情报 · 本地版</div>
+      </div>
+    </div>
+    <nav>
+      <button class="nav active" data-v="brief">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h16"/></svg>每日简报
+      </button>
+      <button class="nav" data-v="tasks">
+        <svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>运行任务
+      </button>
+      <button class="nav" data-v="sources">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>信源与规则
+      </button>
+      <button class="nav" data-v="about">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>关于与推送
+      </button>
+    </nav>
+    <div class="side-foot">
+      <div class="tips">按 <kbd>R</kbd> 刷新数据<br>按住 <kbd>Shift</kbd> 多选条目</div>
+      <div class="user-card">
+        <div class="user-row">
+          <div class="avatar">本地</div>
+          <div>
+            <div class="uname">DeepSeek Harness</div>
+            <div class="usub">零安装 · 无后台进程</div>
+          </div>
+        </div>
+        <div class="meter"><i style="width:75%"></i></div>
+        <div class="ustat">4 次运行 · 成功 3 · 失败 1</div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- 简报 -->
+    <section class="view on" id="v-brief">
+      <div class="head">
+        <h1>每日简报</h1>
+        <p>把 4 个信源的更新，整理成一条可以直接发进微信的简报</p>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="today">今天的简报</button>
+        <button class="tab" data-tab="history">历史归档</button>
+      </div>
+      <div class="bar">
+        <div class="field">
+          <input id="q" placeholder="粘贴链接或关键词，立刻单独抓一条…">
+        </div>
+        <button class="btn">解析</button>
+        <button class="btn dark" id="copyAll">复制全文</button>
+      </div>
+      <div class="toolbar">
+        <div class="crumb">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          </svg>
+          2026-10-24
+        </div>
+        <div class="right">
+          <span id="selCount">已选 0 条</span>
+          <span>全部展开</span>
+          <span>刷新</span>
+        </div>
+      </div>
+
+      <div class="body" id="list"></div>
+
+      <div class="bottom">
+        <div class="stat" id="footStat">窗口 10-21 → 10-24 · 信源 4 试 2 成 · 5 条</div>
+        <div class="spacer"></div>
+        <button class="btn" id="export">导出 Markdown</button>
+        <button class="btn dark" id="push">推送企业微信</button>
+      </div>
+    </section>
+
+    <!-- 任务 -->
+    <section class="view" id="v-tasks">
+      <div class="head">
+        <h1>运行任务</h1>
+        <p>定时任务与最近 4 次运行记录，失败会红标</p>
+      </div>
+      <div class="bar">
+        <div class="field"><input placeholder="下次触发：工作日 08:30（Asia/Shanghai）" disabled></div>
+        <button class="btn">暂停</button>
+        <button class="btn dark">立即运行一次</button>
+      </div>
+      <div class="toolbar"><div class="crumb">运行历史</div>
+        <div class="right"><span>共 4 条</span><span>刷新</span></div>
+      </div>
+      <div class="body" id="runs"></div>
+      <div class="bottom"><div class="stat">当前会话内定时器，应用关闭不触发</div><div class="spacer"></div></div>
+    </section>
+
+    <!-- 信源 -->
+    <section class="view" id="v-sources">
+      <div class="head">
+        <h1>信源与规则</h1>
+        <p>逐个源轮询，不靠关键词瞎搜；同一事件合并成一条</p>
+      </div>
+      <div class="toolbar"><div class="crumb">信源清单</div>
+        <div class="right"><span>2 可用 · 1 失效 · 1 不可用</span></div>
+      </div>
+      <div class="body" id="srcs"></div>
+      <div class="bottom"><div class="stat">输出上限 5 条 · 单源失败记录后继续 · 全部失败才中止</div>
+        <div class="spacer"></div><button class="btn">编辑 EXPERT.md</button></div>
+    </section>
+
+    <!-- 关于 -->
+    <section class="view" id="v-about">
+      <div class="head">
+        <h1>关于与推送</h1>
+        <p>本地运行，不对外发布；推送需要你自己填企业微信密钥</p>
+      </div>
+      <div class="toolbar"><div class="crumb">零污染声明</div></div>
+      <div class="body" style="padding:22px">
+        <div style="font-size:13px;line-height:2;color:#2a2e35;max-width:760px">
+          <p>· 不安装软件，不改注册表 / PATH，不设开机自启，不起常驻进程。</p>
+          <p>· 所有产物在一个文件夹里，删掉就没了。</p>
+          <p>· 定时靠应用在线：关了就静默不跑，恢复后只补最近一次。</p>
+          <p>· 不碰个人微信的非官方手段。</p>
+          <p style="margin-top:14px;color:#9aa1ab;font-size:12px">
+            推送命令：<span class="code">node push-wechat.mjs output/2026-10-24-wechat.md</span>
+          </p>
+        </div>
+      </div>
+      <div class="bottom"><div class="stat">版本 0.1 · 2026-10-24</div><div class="spacer"></div></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const DATA = {
+  date: "2026-10-24",
+  window: "10-21 → 10-24",
+  brief: [
+    {n:"01", tag:"技术", title:"Anthropic 把 Agent Skills 捐给 Agentic AI Foundation（10/22）",
+     why:"智能体的技能规范从一家公司托管，变成中立基金会，已有 70+ 平台接入",
+     who:"做 Agent / 自动化工作流的团队",
+     org:"Anthropic 官方", url:"https://www.anthropic.com/news/donating-agent-skills-to-the-agentic-ai-foundation"},
+    {n:"02", tag:"行业", title:"Anthropic 开放生命科学客座研究员招募（10/22）",
+     why:"模型公司开始把行业专家直接拉进研发流程，而非只卖 API",
+     who:"生物医药、科研合作岗",
+     org:"Anthropic 官方", url:"https://www.anthropic.com/news/open-call-guest-investigators-life-sciences"},
+    {n:"03", tag:"行业", title:"Uber 全员启用 ChatGPT Work（10/22）",
+     why:"大厂把 AI 从试点项目变成按座位发放",
+     who:"HR、管理者、IT 采购",
+     org:"OpenAI 官方博客", url:"https://openai.com/index/uber-chatgpt-work-rollout/"},
+    {n:"04", tag:"产品", title:"OpenAI 模型上架 Google Cloud（10/21）",
+     why:"选型不再被单一云厂商绑定，同一个模型可在非 Azure 的云上买到",
+     who:"架构师、采购",
+     org:"OpenAI 官方博客", url:"https://openai.com/index/openai-models-google-cloud/"},
+    {n:"05", tag:"技术", title:"Decisions API 上线（10/22）",
+     why:"应用能在运行时向模型要下一步动作，而不是把流程写死",
+     who:"产品经理、后端开发",
+     org:"OpenAI 官方博客", url:"https://openai.com/index/decisions-api/"}
+  ],
+  runs: [
+    {id:"2026-10-24-03", trigger:"定时触发", at:"20:00:52", dur:"38.0 s", tried:4, ok:2, failed:"openai.com → 403", kept:5, st:"部分失败"},
+    {id:"2026-10-24-04", trigger:"空结果演练", at:"20:21", dur:"1.2 s", tried:2, ok:0, failed:"—", kept:0, st:"通过"},
+    {id:"2026-10-24-02", trigger:"人工重跑", at:"19:52", dur:"未埋点", tried:4, ok:2, failed:"deepseek → 404", kept:5, st:"部分失败"},
+    {id:"2026-10-24-01", trigger:"人工", at:"19:40", dur:"未埋点", tried:2, ok:1, failed:"—", kept:5, st:"通过"}
+  ],
+  sources: [
+    {name:"OpenAI", url:"openai.com/news", lvl:"一手", st:"403", cls:"bad"},
+    {name:"Anthropic", url:"anthropic.com/news", lvl:"一手", st:"可用", cls:"ok"},
+    {name:"Google AI", url:"blog.google/technology/ai", lvl:"一手", st:"无日期", cls:"warn"},
+    {name:"DeepSeek", url:"api-docs.deepseek.com/news", lvl:"一手", st:"404", cls:"bad"}
+  ]
+};
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+/* 列表 */
+function renderList() {
+  $("#list").innerHTML = DATA.brief.map((b) => `
+    <div class="row">
+      <div class="chk" data-i="${b.n}"></div>
+      <div class="num">${b.n}</div>
+      <div class="info">
+        <div class="title">${esc(b.title)}<span class="chip">#${esc(b.tag)}</span></div>
+        <div class="why">${esc(b.why)}</div>
+        <div class="who">${esc(b.who)}</div>
+        <a class="src" href="${b.url}" onclick="return false">${esc(b.org)} · ${esc(b.url.replace(/^https?:\/\//, ""))}</a>
+      </div>
+    </div>`).join("");
+  bindChecks();
+}
+
+function bindChecks() {
+  document.querySelectorAll(".chk").forEach((c) => {
+    c.onclick = () => {
+      c.classList.toggle("on");
+      const n = document.querySelectorAll(".chk.on").length;
+      $("#selCount").textContent = "已选 " + n + " 条";
+    };
+  });
+}
+
+/* 任务 */
+function renderRuns() {
+  $("#runs").innerHTML = `<table><thead><tr>
+    <th>运行</th><th>触发</th><th>时刻</th><th>耗时</th><th>信源 试/成</th><th>失败源</th><th>条数</th><th>状态</th>
+  </tr></thead><tbody>${DATA.runs.map((r) => `<tr>
+    <td class="k">${r.id}</td><td>${r.trigger}</td><td>${r.at}</td><td>${r.dur}</td>
+    <td>${r.tried} / ${r.ok}</td><td>${esc(r.failed)}</td><td>${r.kept}</td>
+    <td class="${r.st === "通过" ? "ok" : "warn"}">${r.st}</td>
+  </tr>`).join("")}</tbody></table>`;
+}
+
+/* 信源 */
+function renderSources() {
+  $("#srcs").innerHTML = `<table><thead><tr>
+    <th>信源</th><th>URL</th><th>级别</th><th>本次状态</th>
+  </tr></thead><tbody>${DATA.sources.map((s) => `<tr>
+    <td class="k">${esc(s.name)}</td><td>${esc(s.url)}</td><td>${s.lvl}</td>
+    <td class="${s.cls}">${s.st}</td>
+  </tr>`).join("")}</tbody></table>`;
+}
+
+/* 导航 */
+document.querySelectorAll(".nav").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".nav").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("on"));
+    b.classList.add("active");
+    $("#v-" + b.dataset.v).classList.add("on");
+  };
+});
+
+/* 标签 */
+document.querySelectorAll(".tab").forEach((t) => {
+  t.onclick = () => {
+    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+    t.classList.add("active");
+    if (t.dataset.tab === "history") {
+      $("#list").innerHTML = `<div class="empty">
+        <svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M3 3l18 18"/></svg>
+        <h3>还没有更早的记录</h3><p>目前只有 2026-10-24 这一天，继续跑几天就会出现在这里</p></div>`;
+    } else renderList();
+  };
+});
+
+/* 复制全文 */
+$("#copyAll").onclick = async () => {
+  const txt = DATA.brief.map((b) =>
+    `${b.n}. ${b.title} #${b.tag}\n重要：${b.why}\n谁关注：${b.who}\n来源：${b.org} · ${b.url}`
+  ).join("\n\n");
+  try { await navigator.clipboard.writeText(txt); $("#copyAll").textContent = "已复制"; }
+  catch { $("#copyAll").textContent = "复制失败"; }
+  setTimeout(() => ($("#copyAll").textContent = "复制全文"), 1600);
+};
+
+renderList(); renderRuns(); renderSources();
+</script>
+</body>
+</html>

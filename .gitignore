@@ -1,0 +1,22 @@
+# 产物
+output/
+logs/
+archive/
+seen.json
+
+# 本地配置与密钥
+.env
+.env.*
+*.local.json
+config/app.local.json
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+node_modules/
+
+# 临时
+*.tmp
+_*

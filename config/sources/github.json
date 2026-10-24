@@ -1,0 +1,29 @@
+{
+  "sources": [
+    {
+      "id": "openai-node",
+      "name": "openai/openai-node",
+      "type": "github",
+      "kind": "releases",
+      "repo": "openai/openai-node",
+      "level": "first-party"
+    },
+    {
+      "id": "langchain",
+      "name": "langchain-ai/langchain",
+      "type": "github",
+      "kind": "releases",
+      "repo": "langchain-ai/langchain",
+      "level": "first-party"
+    },
+    {
+      "id": "deepseek-v3",
+      "name": "deepseek-ai/DeepSeek-V3",
+      "type": "github",
+      "kind": "releases",
+      "repo": "deepseek-ai/DeepSeek-V3",
+      "level": "first-party"
+    }
+  ],
+  "note": "GitHub API 未鉴权每小时 60 次；配置 GITHUB_TOKEN 环境变量可提到 5000 次"
+}

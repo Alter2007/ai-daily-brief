@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Fixture Feed</title>
+    <item>
+      <title>OpenAI 发布新模型，支持更长上下文并降低定价</title>
+      <link>https://example.com/openai-new-model</link>
+      <pubDate>Fri, 24 Oct 2026 02:00:00 GMT</pubDate>
+      <description><![CDATA[官方博客称新模型已上线，API 定价下调 30%，支持 1M token 上下文。]]></description>
+    </item>
+    <item>
+      <title>据传某公司即将开源推理框架</title>
+      <link>https://example.com/rumor</link>
+      <pubDate>Thu, 23 Oct 2026 10:00:00 GMT</pubDate>
+      <description>消息人士透露，爆料内容未证实。</description>
+    </item>
+    <item>
+      <title>Anthropic 把 Agent Skills 捐给中立基金会</title>
+      <link>https://example.com/agent-skills</link>
+      <pubDate>Wed, 22 Oct 2026 08:00:00 GMT</pubDate>
+      <description>已有 70+ 平台接入该标准。</description>
+    </item>
+  </channel>
+</rss>

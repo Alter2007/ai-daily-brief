@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>arXiv fixture</title>
+  <entry>
+    <title>Scaling Laws for Sparse Attention in Long-Context Models</title>
+    <link href="https://arxiv.org/abs/2610.00001"/>
+    <updated>2026-10-23T18:00:00Z</updated>
+    <summary>We study sparse attention scaling for 1M token contexts and report a 22% throughput gain.</summary>
+  </entry>
+</feed>
