@@ -25,6 +25,27 @@ export async function httpText(url, { timeout = 20000, headers = {} } = {}) {
   }
 }
 
+/** 取 JSON + 响应头（GitHub 的限流余量在头里） */
+export async function httpJson(url, { timeout = 20000, headers = {} } = {}) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), timeout);
+  try {
+    const r = await fetch(url, {
+      signal: ac.signal,
+      headers: { 'user-agent': 'ai-daily-brief/0.1 (+https://github.com)', ...headers },
+    });
+    const h = Object.fromEntries(r.headers);
+    if (!r.ok) {
+      const e = new Error('HTTP ' + r.status + (h['x-ratelimit-remaining'] === '0' ? '（限流用尽）' : ''));
+      e.headers = h;
+      throw e;
+    }
+    return { data: await r.json(), headers: h };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 /* ---------------- feed 解析（RSS 2.0 / Atom） ---------------- */
 
 const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
@@ -133,6 +154,11 @@ export function pickTag(item) {
   return '动态';
 }
 
+/** 从 release 正文里找破坏性变更 */
+export function hasBreaking(text = '') {
+  return /BREAKING[ -]?CHANGE|BREAKING:|!:\s|\bbreaking\b/i.test(String(text));
+}
+
 export function score(item, topic, now = Date.now()) {
   const text = (item.title + ' ' + (item.summary || '')).toLowerCase();
   let hits = 0;
@@ -179,8 +205,9 @@ export function renderWechat(items, meta) {
   const body = items
     .map((it, i) => {
       const tag = it.tags?.[0] || '动态';
+      const warn = it.breaking ? ' ⚠️破坏性变更' : '';
       return [
-        `${i + 1}️⃣ ${it.title}（${md(new Date(it.date))}）#${tag}`,
+        `${i + 1}️⃣ ${it.title}（${md(new Date(it.date))}）#${tag}${warn}`,
         `💡 重要：${it.summary || '—'}`,
         `👥 谁关注：${meta.audience}`,
         `🔗 ${it.org} · ${it.url}`,
@@ -200,7 +227,7 @@ export function renderMd(items, meta) {
   ];
   for (const it of items) {
     lines.push(
-      `## ${it.title}`,
+      `## ${it.title}${it.breaking ? ' ⚠️ 破坏性变更' : ''}`,
       '',
       `- **为什么重要**：${it.summary || '—'}`,
       `- **谁该看**：${meta.audience}`,

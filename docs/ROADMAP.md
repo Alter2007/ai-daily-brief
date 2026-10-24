@@ -29,14 +29,15 @@
 
 验收：`--topic policy` 能出 3 条以上有效条目。
 
-## M4 · GitHub 单站专题打磨
+## M4 · GitHub 单站专题（已完成）
 
-- [ ] 支持 `kind: commits`（过滤 merge/chore）
-- [ ] 支持组织级 watch（`org: openai`）
-- [ ] release 正文里提取 breaking change
-- [ ] `GITHUB_TOKEN` 支持与速率提示
-
-验收：`--topic github-watch` 能覆盖 10 个仓库，未鉴权时不报错降级。
+- [x] `kind: releases` / `kind: commits` 两种抓取
+- [x] commits 过滤 `merge / chore / docs / ci / test / style / build` 开头的提交
+- [x] 破坏性变更识别（`BREAKING CHANGE` / `fix!:` / `breaking:`），在简报里标 `⚠️破坏性变更`
+- [x] 限流：读 `x-ratelimit-remaining`，403/429 时错误信息标注「限流用尽」
+- [x] `GITHUB_TOKEN` 支持（60/h → 5000/h）
+- [ ] 组织级 watch（`org: openai`）——留待需要时再加
+- [ ] release 正文按小节切分（Features / Fixes / Breaking 分块）
 
 ## M5 · 质量层
 

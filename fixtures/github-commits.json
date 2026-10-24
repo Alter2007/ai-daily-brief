@@ -1,0 +1,34 @@
+[
+  {
+    "sha": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+    "html_url": "https://github.com/example/repo/commit/a1b2c3d",
+    "commit": {
+      "author": { "date": "2026-10-24T09:00:00Z" },
+      "message": "feat: 支持流式工具调用与超时重试\n\n新增 streamToolCalls 选项，默认开启。"
+    }
+  },
+  {
+    "sha": "b2c3d4e5f60718293a4b5c6d7e8f901234567890",
+    "html_url": "https://github.com/example/repo/commit/b2c3d4e",
+    "commit": {
+      "author": { "date": "2026-10-24T08:00:00Z" },
+      "message": "fix!: 移除 v4 兼容层（breaking change）"
+    }
+  },
+  {
+    "sha": "c3d4e5f60718293a4b5c6d7e8f90123456789012",
+    "html_url": "https://github.com/example/repo/commit/c3d4e5f",
+    "commit": {
+      "author": { "date": "2026-10-24T07:00:00Z" },
+      "message": "Merge pull request #42 from feat/foo"
+    }
+  },
+  {
+    "sha": "d4e5f60718293a4b5c6d7e8f9012345678901234",
+    "html_url": "https://github.com/example/repo/commit/d4e5f60",
+    "commit": {
+      "author": { "date": "2026-10-24T06:00:00Z" },
+      "message": "chore: 更新依赖与 CI 配置"
+    }
+  }
+]

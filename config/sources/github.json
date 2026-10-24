@@ -26,7 +26,16 @@
       "repo": "deepseek-ai/DeepSeek-V3",
       "level": "first-party",
       "category": "repo"
+    },
+    {
+      "id": "transformers-commits",
+      "name": "huggingface/transformers",
+      "type": "github",
+      "kind": "commits",
+      "repo": "huggingface/transformers",
+      "level": "first-party",
+      "category": "repo"
     }
   ],
-  "note": "GitHub API 未鉴权每小时 60 次；配置 GITHUB_TOKEN 环境变量可提到 5000 次"
+  "note": "GitHub API 未鉴权每小时 60 次，export GITHUB_TOKEN 可提到 5000。kind: releases | commits；commits 会过滤 merge/chore/docs/ci/test/style/build 开头的提交。"
 }

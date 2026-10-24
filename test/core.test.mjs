@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint } from '../src/lib.mjs';
+import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking } from '../src/lib.mjs';
+import { collectGithub } from '../src/sources.mjs';
 import { runOnce } from '../src/pipeline.mjs';
 
 /* ---------------- 文本清洗 ---------------- */
@@ -124,6 +125,48 @@ test('标题归一化后指纹一致', () => {
     fingerprint({ title: 'OpenAI 发布新模型！' }),
     fingerprint({ title: 'openai 发布新模型' })
   );
+});
+
+/* ---------------- GitHub 适配器 ---------------- */
+
+const GH_CFG = {
+  sources: [
+    { id: 'repo-x', name: 'example/repo', type: 'github', kind: 'releases', repo: 'example/repo', level: 'first-party' },
+  ],
+};
+
+test('releases：解析标题、链接、日期，并识别破坏性变更', async () => {
+  const out = await collectGithub(GH_CFG, { dryRun: true, root: process.cwd() });
+  assert.equal(out.tried, 1);
+  assert.equal(out.ok, 1);
+  assert.equal(out.failures.length, 0);
+  assert.ok(out.items.length >= 2);
+  const v52 = out.items.find((i) => i.title.includes('v5.2.0'));
+  assert.ok(v52, '应包含 v5.2.0');
+  assert.match(v52.url, /^https:\/\/github\.com\//);
+  assert.equal(v52.breaking, true, 'v5.2.0 正文含 breaking，应标记');
+});
+
+test('commits：过滤 merge / chore，保留 feat 与 fix，标记破坏性变更', async () => {
+  const cfg = {
+    sources: [
+      { id: 'c', name: 'example/repo', type: 'github', kind: 'commits', repo: 'example/repo', level: 'first-party' },
+    ],
+  };
+  const out = await collectGithub(cfg, { dryRun: true, root: process.cwd(), days: 3 });
+  const titles = out.items.map((i) => i.title).join(' | ');
+  assert.ok(!/Merge pull request/i.test(titles), 'merge 提交应被过滤: ' + titles);
+  assert.ok(!/chore:/i.test(titles), 'chore 提交应被过滤: ' + titles);
+  assert.ok(/feat: 支持流式工具调用/.test(titles), 'feat 应保留: ' + titles);
+  const breaking = out.items.find((i) => /移除 v4 兼容层/.test(i.title));
+  assert.ok(breaking?.breaking, 'fix! 应标记为破坏性变更');
+});
+
+test('hasBreaking 识别多种写法', () => {
+  assert.equal(hasBreaking('BREAKING CHANGE: 移除旧接口'), true);
+  assert.equal(hasBreaking('fix!: 不兼容改动'), true);
+  assert.equal(hasBreaking('breaking: changed api'), true);
+  assert.equal(hasBreaking('普通修复'), false);
 });
 
 /* ---------------- 端到端（离线） ---------------- */

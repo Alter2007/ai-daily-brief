@@ -71,6 +71,11 @@ node src/serve.mjs --dry-run  # 离线演示，用 fixtures 数据
 
 失败的源不会让整次运行失败，只记进 `sources_failed`。
 
+### 双击启动（Windows）
+
+仓库根目录有 `start-panel.cmd`：双击后自动起服务并打开浏览器，**关掉窗口服务就停**，不留后台进程。
+想放到桌面就右键它 → 发送到 → 桌面快捷方式。
+
 ## 测试
 
 ```bash
