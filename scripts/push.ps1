@@ -1,8 +1,6 @@
-# scripts/push.ps1 —— 一键推送到 GitHub，自动处理 Windows 的 TLS 后端问题
-# 用法：
-#   powershell -ExecutionPolicy Bypass -File scripts\push.ps1
-#   powershell -ExecutionPolicy Bypass -File scripts\push.ps1 -Remote origin -Branch main
-
+# scripts/push.ps1 -- push this repo to GitHub.
+# ASCII-only messages on purpose: a UTF-8 script without BOM gets read as ANSI by
+# Windows PowerShell 5.1 and Chinese literals turn into noise (see git history).
 param(
   [string]$Remote = "origin",
   [string]$Branch = "main",
@@ -14,50 +12,51 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 
 function Step($msg) { Write-Host "`n== $msg" -ForegroundColor Cyan }
 
-Step "检查仓库状态"
+Step "Checking working tree"
 $dirty = git status --porcelain
 if ($dirty) {
-  Write-Host "工作区有未提交改动：" -ForegroundColor Yellow
+  Write-Host "Uncommitted changes:" -ForegroundColor Yellow
   $dirty | ForEach-Object { Write-Host "  $_" }
-  Write-Host "先提交再推：git add -A; git commit -m '...'" -ForegroundColor Yellow
+  Write-Host "Commit first: git add -A; git commit -m '...'" -ForegroundColor Yellow
   exit 1
 }
 git -c core.pager=cat log --oneline | Select-Object -First 5 | ForEach-Object { Write-Host "  $_" }
 
-Step "检查 remote"
+Step "Checking remote"
 $existing = git remote get-url $Remote 2>$null
 if (-not $existing) {
-  Write-Host "添加 remote $Remote → $Url"
+  Write-Host "Adding remote $Remote -> $Url"
   git remote add $Remote $Url
 } else {
-  Write-Host "已存在：$Remote → $existing"
+  Write-Host "Remote: $Remote -> $existing"
 }
 
-Step "尝试推送（默认 TLS 后端）"
+Step "Pushing (default TLS backend)"
 $out = git push -u $Remote $Branch 2>&1 | Out-String
 Write-Host $out
 if ($LASTEXITCODE -eq 0) {
-  Write-Host "推送成功 ✓" -ForegroundColor Green
+  Write-Host "Push succeeded." -ForegroundColor Green
   exit 0
 }
 
 if ($out -match "SEC_E_NO_CREDENTIALS|schannel") {
-  Step "schannel 报错，改用 OpenSSL 后端重试"
+  Step "schannel failed, retrying with OpenSSL backend"
   $out2 = git -c http.sslBackend=openssl push -u $Remote $Branch 2>&1 | Out-String
   Write-Host $out2
   if ($LASTEXITCODE -eq 0) {
-    Write-Host "推送成功 ✓（建议永久启用：git config --global http.sslBackend openssl）" -ForegroundColor Green
+    Write-Host "Push succeeded with OpenSSL backend." -ForegroundColor Green
+    Write-Host "To make it permanent: git config --global http.sslBackend openssl" -ForegroundColor DarkGray
     exit 0
   }
 }
 
 if ($out -match "could not read Username|Authentication failed") {
-  Step "需要登录 GitHub"
-  Write-Host "请任选一种：" -ForegroundColor Yellow
-  Write-Host "  1) git credential-manager github login   （登录一次后重跑本脚本）"
-  Write-Host "  2) 用 Personal Access Token 作为密码：设置 → Developer settings → Tokens (classic) → 勾 repo"
+  Step "GitHub login required"
+  Write-Host "Run one of these, then retry:" -ForegroundColor Yellow
+  Write-Host "  1) git credential-manager github login"
+  Write-Host "  2) use a Personal Access Token as the password (Settings -> Developer settings -> Tokens)"
   exit 2
 }
 
-Write-Host "推送失败，请把上面的完整输出发给我。" -ForegroundColor Red
+Write-Host "Push failed. Copy the full output above." -ForegroundColor Red
 exit 3
