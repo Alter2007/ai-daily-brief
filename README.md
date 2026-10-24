@@ -31,7 +31,7 @@ code 模式负责**结构化、可重复**的部分；agent 模式负责**需要
 ## 快速开始
 
 ```bash
-git clone https://github.com/<your-name>/ai-daily-brief.git
+git clone https://github.com/Alter2007/ai-daily-brief.git
 cd ai-daily-brief
 
 # 用示例数据跑一遍，不联网也能看到输出长什么样

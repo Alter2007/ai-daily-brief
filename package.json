@@ -4,6 +4,14 @@
   "description": "每天 08:00 把最近几天的 AI 动态压成一条微信简报。零依赖。",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alter2007/ai-daily-brief.git"
+  },
+  "homepage": "https://github.com/Alter2007/ai-daily-brief#readme",
+  "bugs": {
+    "url": "https://github.com/Alter2007/ai-daily-brief/issues"
+  },
   "bin": {
     "ai-daily-brief": "src/run.mjs"
   },

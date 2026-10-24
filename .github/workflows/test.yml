@@ -1,0 +1,31 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: 依赖检查（应当为零）
+        run: |
+          if [ -d node_modules ]; then echo "发现 node_modules"; exit 1; fi
+          echo "零依赖 ✓"
+      - name: 单元测试
+        run: npm test
+      - name: 离线端到端
+        run: node src/run.mjs --topic ai-industry --dry-run
+      - name: 产出检查
+        run: |
+          test -f output/_dryrun-ai-industry-wechat.md
+          echo "产出了简报 ✓"
