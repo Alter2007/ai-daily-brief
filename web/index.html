@@ -174,7 +174,7 @@
         <div class="field">
           <input id="q" placeholder="粘贴链接或关键词，立刻单独抓一条…">
         </div>
-        <button class="btn">解析</button>
+        <button class="btn" id="runBtn">立即运行</button>
         <button class="btn dark" id="copyAll">复制全文</button>
       </div>
       <div class="toolbar">
@@ -380,6 +380,100 @@ $("#copyAll").onclick = async () => {
 };
 
 renderList(); renderRuns(); renderSources();
+
+/* ---------- 接真实数据：有服务用服务，没有就保持内置快照 ---------- */
+const AS = (s) => String(s ?? "");
+const rel = (u) => AS(u).replace(/^https?:\/\//, "");
+
+function fmtRun(r) {
+  const bad = (r.sources_failed || []).map((f) => `${f.source} → ${String(f.error).slice(0, 16)}`).join("；");
+  const st = r.status === "ok" ? "通过" : r.status === "empty" ? "空结果" : "部分失败";
+  return {
+    id: r.run_id,
+    trigger: r.trigger === "panel" ? "面板触发" : r.trigger === "dry-run" ? "dry-run" : r.trigger,
+    at: String(r.duration_ms ? "" : "人工"),
+    dur: r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + " s" : "未埋点",
+    tried: r.sources_tried, ok: r.sources_ok,
+    failed: bad || "—", kept: r.items_kept, st,
+  };
+}
+
+async function loadState() {
+  let st;
+  try {
+    const r = await fetch("/api/state", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    st = await r.json();
+  } catch {
+    document.body.dataset.mode = "snapshot";
+    $("#runBtn").textContent = "启动服务后可运行";
+    return;
+  }
+  document.body.dataset.mode = "live";
+
+  if (st.brief?.items?.length) {
+    DATA.brief = st.brief.items.map((b, i) => ({
+      n: String(i + 1).padStart(2, "0"),
+      tag: (b.tags && b.tags[0]) || "动态",
+      title: AS(b.title),
+      why: AS(b.summary) || "—",
+      who: AS(st.brief.meta?.audience) || "普通职场人",
+      org: AS(b.org),
+      url: AS(b.url),
+    }));
+    const m = st.brief.meta || {};
+    $("#footStat").textContent = `窗口 ${m.windowDays ?? "—"} 天 · 信源 ${m.tried ?? 0} 试 ${m.ok ?? 0} 成 · ${DATA.brief.length} 条`;
+    const crumb = document.querySelector(".crumb");
+    if (crumb) crumb.textContent = String(m.topicName || m.topic || "今日") + " · " + String(m.date || "").slice(0, 10);
+  }
+
+  if (st.runs?.length) {
+    DATA.runs = st.runs.map(fmtRun);
+    const c = document.querySelector("#v-tasks .right span");
+    if (c) c.textContent = `共 ${DATA.runs.length} 条`;
+  }
+
+  if (st.sources?.length) {
+    const failedOf = (id) => (st.runs?.[0]?.sources_failed || []).find((x) => x.source === id);
+    DATA.sources = st.sources.map((s) => {
+      const f = failedOf(s.id);
+      return {
+        name: s.name,
+        url: rel(s.url),
+        lvl: s.level === "first-party" ? "一手" : "二手",
+        st: f ? String(f.error).slice(0, 8) : s.type === "web" ? "需 agent" : "可用",
+        cls: f ? "bad" : s.type === "web" ? "warn" : "ok",
+      };
+    });
+  }
+
+  renderList(); renderRuns(); renderSources();
+}
+
+$("#runBtn").onclick = async () => {
+  const btn = $("#runBtn");
+  if (document.body.dataset.mode !== "live") return;
+  const old = btn.textContent;
+  btn.textContent = "运行中…";
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/run", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+    });
+    const j = await r.json();
+    btn.textContent = j.ok ? `完成 ${j.stats?.kept ?? 0} 条` : "失败";
+    await loadState();
+  } catch {
+    btn.textContent = "运行失败";
+  }
+  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2200);
+};
+
+addEventListener("keydown", (e) => {
+  if ((e.key === "r" || e.key === "R") && !e.ctrlKey) loadState();
+});
+
+loadState();
 </script>
 </body>
 </html>

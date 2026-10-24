@@ -43,6 +43,34 @@ node src/run.mjs --topic ai-industry --days 3
 
 输出在 `output/YYYY-MM-DD-<topic>-wechat.md`，运行记录在 `logs/YYYY-MM-DD.jsonl`。
 
+## 面板（可选，零依赖）
+
+```bash
+node src/serve.mjs            # 真实抓取，监听 127.0.0.1:4177
+node src/serve.mjs --dry-run  # 离线演示，用 fixtures 数据
+```
+
+打开 <http://127.0.0.1:4177> 就是那个三栏界面：左侧导航、中间条目、底部运行记录。点「立即运行」会真的跑一次流水线并刷新列表。
+
+| 接口 | 说明 |
+|---|---|
+| `GET /api/state` | 配置、主题列表、信源、最近 20 次运行、最新简报 |
+| `POST /api/run` | 触发一次运行，body 可传 `{ "topic": "...", "days": 3, "dryRun": false }` |
+
+服务只监听回环地址，不对外暴露；Ctrl+C 即停，不留后台进程。
+
+### 实测
+
+一次真实运行（2026-10-24，窗口 3 天）：
+
+```
+信源   7 试 / 3 成（OpenAI News、Google AI Blog、arXiv 可用；GitHub 三源与 HuggingFace 失败）
+候选   5 条过门槛全部采用
+耗时   1.5 s
+```
+
+失败的源不会让整次运行失败，只记进 `sources_failed`。
+
 ## 常用参数
 
 | 参数 | 说明 |
