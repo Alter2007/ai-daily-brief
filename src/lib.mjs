@@ -30,13 +30,18 @@ export async function httpText(url, { timeout = 20000, headers = {} } = {}) {
 const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 
 export function strip(s = '') {
-  return String(s)
+  let x = String(s)
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(+d))
+    .replace(/&(amp|lt|gt|quot|apos|nbsp);/g, (m, k) => ENT[k] ?? m)
+    // 先解实体再去标签：有的 feed 把 HTML 转义过，反过来会漏
     .replace(/<[^>]+>/g, ' ')
     .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(+d))
-    .replace(/&(\w+);/g, (m, k) => ENT[k] ?? m)
+    .replace(/&(amp|lt|gt|quot|apos|nbsp);/g, (m, k) => ENT[k] ?? m)
+    .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  return x;
 }
 
 const pick = (block, tag) => {
@@ -83,12 +88,33 @@ export function parseTopic(md) {
       .filter((w) => w && !/^[`（(].*/.test(w));
 
   const audience = (md.match(/面向([^，。\n]+)/) || [])[1] || '关注这条线的人';
+
+  // ## 信源
+  // include: vendor, research
+  // exclude: arxiv
+  const srcBlock = grab('信源');
+  const pickList = (k) => {
+    const m = srcBlock.match(new RegExp(k + '[:：]\\s*(.+)', 'i'));
+    return m ? m[1].split(/[,，\s]+/).map((x) => x.trim()).filter(Boolean) : [];
+  };
+
   return {
     buzz: words(grab('加分词')),
     negative: words(grab('减分词')),
     audience,
     firstPartyBonus: /20/.test(grab('一手源加成')) ? 20 : 15,
+    filter: { include: pickList('include'), exclude: pickList('exclude') },
   };
+}
+
+/** 判断某个信源是否被主题允许 */
+export function sourceAllowed(src, filter = {}) {
+  const keys = [src.id, src.category, src.type].filter(Boolean);
+  const exc = filter.exclude || [];
+  const inc = filter.include || [];
+  if (exc.some((k) => keys.includes(k))) return false;
+  if (inc.length) return inc.some((k) => keys.includes(k));
+  return true;
 }
 
 /* 分类标签：先看主题里给的分类，再用内置关键词兜底 */
@@ -109,15 +135,19 @@ export function pickTag(item) {
 
 export function score(item, topic, now = Date.now()) {
   const text = (item.title + ' ' + (item.summary || '')).toLowerCase();
-  let s = 30; // 基础分：能进候选池就说明格式完整
   let hits = 0;
   for (const w of topic.buzz) if (w && text.includes(w.toLowerCase())) hits++;
+
+  let s = 10; // 基础分：格式完整，但不足以单独进简报
   s += Math.min(hits * 10, 30);
+  if (hits === 0) s -= 10; // 与主题词零命中 → 视为不相关
   for (const w of topic.negative) if (w && text.includes(w.toLowerCase())) s -= 25;
   if (item.level === 'first-party') s += topic.firstPartyBonus;
+
   const age = item.date ? (now - Date.parse(item.date)) / 86400000 : 99;
-  if (age <= 1) s += 15;
+  if (age <= 1) s += 10;
   else if (age <= 3) s += 5;
+
   return Math.max(0, s);
 }
 

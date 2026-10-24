@@ -71,6 +71,16 @@ node src/serve.mjs --dry-run  # 离线演示，用 fixtures 数据
 
 失败的源不会让整次运行失败，只记进 `sources_failed`。
 
+## 测试
+
+```bash
+npm test          # 等价于 node test/core.test.mjs
+```
+
+15 个用例，覆盖：HTML 实体清洗、RSS/Atom 解析、主题规则解析、信源范围过滤、打分回归（零命中挡在门外 / 传闻降权 / 陈旧不加分）、去重指纹、dry-run 端到端。
+
+> 注：在受限沙箱里 `node --test` 会因无法 spawn 子进程而失败，所以 `npm test` 直接跑测试文件（in-process），两边都能用。
+
 ## 常用参数
 
 | 参数 | 说明 |
@@ -90,9 +100,44 @@ node src/serve.mjs --dry-run  # 离线演示，用 fixtures 数据
 config/topics/
 ├─ ai-industry.md   # 行业动态（默认）
 ├─ ai-coding.md     # 编程 / 开发者工具
-├─ github-watch.md  # 只盯 GitHub 仓库动态
-└─ chip.md          # 芯片与算力（示例）
+├─ research.md      # 研究前沿（论文 / 机构报告）
+└─ github-watch.md  # 只盯 GitHub 仓库 release
 ```
+
+主题文件里还能锁定信源范围：
+
+```markdown
+## 信源
+include: vendor, research, policy, media
+exclude: arxiv, repo
+```
+
+`include` / `exclude` 按信源的 `id`、`category`、`type` 三者任意匹配。所以 `ai-industry` 不会混进 arXiv 论文，`github-watch` 也不会混进新闻。
+
+## 信源（已逐个实测）
+
+不靠印象写配置，`scripts/probe-feeds.mjs` 会告诉你哪些真的能用：
+
+```bash
+node scripts/probe-feeds.mjs --from config/sources/rss.json
+node scripts/probe-feeds.mjs https://example.com/feed.xml
+```
+
+2026-10-24 实测 12 个候选，9 个可用：
+
+| 类别 | 信源 | 状态 |
+|---|---|---|
+| 厂商 | OpenAI News（RSS，1318 条） | ✅ |
+| 厂商 | Google AI Blog | ✅ |
+| 厂商 | Anthropic News | ❌ 无 RSS（404），留 `type: web` 给 agent |
+| 研究 | Google DeepMind Blog（100 条） | ✅ |
+| 研究 | MIT News AI（50 条） | ✅ |
+| 政策 | NIST News（40 条，美国政府/标准机构） | ✅ |
+| 媒体 | TechCrunch AI / The Verge AI / MIT Tech Review | ✅ |
+| 中文 | InfoQ 中文 | ✅ |
+| 社区 | Hacker News · AI | ✅ |
+| 论文 | arXiv cs.AI / cs.CL | ✅ |
+| — | HuggingFace Blog / 36氪 | ❌ 前者连不通，后者返回 HTML 不是 feed |
 
 ## 扩信源 = 加一行配置
 
@@ -125,10 +170,10 @@ output/ logs/    产物（已 gitignore）
 见 [docs/ROADMAP.md](docs/ROADMAP.md)。当前进度：
 
 - [x] M1 仓库骨架 + 配置驱动 + code 模式跑通
-- [ ] M2 本地面板接真实数据、一键运行
-- [ ] M3 主题切换 + 信源扩容（政策 / 研究机构 / arXiv）
-- [ ] M4 GitHub 单站专题
-- [ ] M5 跨天去重 + 重要性打分
+- [x] M2 本地面板接真实数据、一键运行
+- [x] M3 主题切换 + 信源扩容（11 个实测可用源，含政府与研究机构）
+- [ ] M4 GitHub 单站专题（代码已通，待联网验证）
+- [ ] M5 跨天去重 + 重要性打分打磨
 - [ ] M6 桌面壳（可选，需 Electron）
 
 ## 边界

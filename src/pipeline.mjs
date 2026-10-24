@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import {
   readJson, writeText, parseTopic, score, fingerprint, loadSeen,
-  renderWechat, renderMd, pickTag,
+  renderWechat, renderMd, pickTag, sourceAllowed,
 } from './lib.mjs';
 import { COLLECTORS } from './sources.mjs';
 
@@ -34,6 +34,10 @@ export async function runOnce(opts = {}) {
     const cfgPath = join(root, rel);
     if (!existsSync(cfgPath)) continue;
     const cfg = await readJson(cfgPath);
+    // 主题限定信源范围：include / exclude 按 id / category / type 匹配
+    if (Array.isArray(cfg.sources)) {
+      cfg.sources = cfg.sources.filter((s) => sourceAllowed(s, topicRules.filter));
+    }
     if (dryRun && Array.isArray(cfg.sources)) cfg.sources = cfg.sources.slice(0, 1);
     const types = new Set((cfg.sources || []).map((s) => s.type));
     for (const t of types) {
@@ -54,6 +58,22 @@ export async function runOnce(opts = {}) {
     tried += r.tried;
     okSources += r.ok;
   }
+
+  // 单源截断：有些源一次给上千条（OpenAI 1318 条），按时间倒序只留前 N
+  const cap = Number(app.max_items_per_source ?? 40);
+  const bySource = new Map();
+  for (const it of items) {
+    const key = it.source || 'unknown';
+    if (!bySource.has(key)) bySource.set(key, []);
+    bySource.get(key).push(it);
+  }
+  const bounded = [];
+  for (const [, list] of bySource) {
+    list.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    bounded.push(...list.slice(0, cap));
+  }
+  items.length = 0;
+  items.push(...bounded);
 
   /* ---- 过滤 / 打分 / 去重 ---- */
   const cutoff = Date.now() - days * 86400000;

@@ -12,9 +12,16 @@
 
 `#release` `#breaking` `#commit`
 
+## 信源
+
+include: repo
+exclude: vendor, media, research, policy, community, arxiv, rss
+
+> 只读 `config/sources/github.json` 里的仓库，不掺杂新闻源。
+
 ## 加分词（命中 +10）
 
-release feat breaking security fix 性能 迁移 弃用
+release 版本 更新 支持 新增 修复 废弃 breaking deprecated 开源 免费 降价 性能 迁移 feature feat security
 
 ## 减分词（命中 −10）
 

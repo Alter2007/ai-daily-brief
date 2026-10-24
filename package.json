@@ -1,0 +1,29 @@
+{
+  "name": "ai-daily-brief",
+  "version": "0.2.0",
+  "description": "每天 08:00 把最近几天的 AI 动态压成一条微信简报。零依赖。",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "ai-daily-brief": "src/run.mjs"
+  },
+  "scripts": {
+    "run": "node src/run.mjs",
+    "dry": "node src/run.mjs --dry-run",
+    "serve": "node src/serve.mjs",
+    "serve:dry": "node src/serve.mjs --dry-run",
+    "probe": "node scripts/probe-feeds.mjs --from config/sources/rss.json",
+    "test": "node test/core.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ai",
+    "newsletter",
+    "rss",
+    "github-releases",
+    "wechat",
+    "zero-dependency"
+  ]
+}

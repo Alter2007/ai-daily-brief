@@ -6,6 +6,7 @@
   },
   "window_days": 3,
   "max_items": 5,
+  "max_items_per_source": 40,
   "min_score": 40,
   "dedupe_days": 7,
   "default_topic": "ai-industry",

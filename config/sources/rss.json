@@ -1,26 +1,44 @@
 {
   "sources": [
     {
-      "id": "google-ai",
-      "name": "Google AI Blog",
-      "type": "rss",
-      "url": "https://blog.google/technology/ai/rss/",
-      "level": "first-party"
-    },
-    {
-      "id": "huggingface",
-      "name": "Hugging Face Blog",
-      "type": "rss",
-      "url": "https://huggingface.co/blog/feed.xml",
-      "level": "first-party"
-    },
-    {
       "id": "openai-news",
       "name": "OpenAI News",
       "type": "rss",
       "url": "https://openai.com/news/rss.xml",
       "level": "first-party",
-      "note": "若返回 403/404，运行日志会记为失败源，不影响其他源"
+      "category": "vendor"
+    },
+    {
+      "id": "google-ai",
+      "name": "Google AI Blog",
+      "type": "rss",
+      "url": "https://blog.google/technology/ai/rss/",
+      "level": "first-party",
+      "category": "vendor"
+    },
+    {
+      "id": "deepmind",
+      "name": "Google DeepMind",
+      "type": "rss",
+      "url": "https://deepmind.google/blog/rss.xml",
+      "level": "first-party",
+      "category": "research"
+    },
+    {
+      "id": "mit-news-ai",
+      "name": "MIT News AI",
+      "type": "rss",
+      "url": "https://news.mit.edu/rss/topic/artificial-intelligence2",
+      "level": "first-party",
+      "category": "research"
+    },
+    {
+      "id": "nist",
+      "name": "NIST News",
+      "type": "rss",
+      "url": "https://www.nist.gov/news-events/news/rss.xml",
+      "level": "first-party",
+      "category": "policy"
     },
     {
       "id": "anthropic-news",
@@ -28,7 +46,48 @@
       "type": "web",
       "url": "https://www.anthropic.com/news",
       "level": "first-party",
-      "note": "无公开 feed，code 模式跳过，agent 模式用 read_page 读"
+      "category": "vendor",
+      "note": "无公开 RSS（news.rss 返回 404），code 模式跳过，由 agent 模式 read_page 补抓"
+    },
+    {
+      "id": "techcrunch-ai",
+      "name": "TechCrunch AI",
+      "type": "rss",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "level": "second-hand",
+      "category": "media"
+    },
+    {
+      "id": "theverge-ai",
+      "name": "The Verge AI",
+      "type": "rss",
+      "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+      "level": "second-hand",
+      "category": "media"
+    },
+    {
+      "id": "techreview",
+      "name": "MIT Technology Review",
+      "type": "rss",
+      "url": "https://www.technologyreview.com/feed/",
+      "level": "second-hand",
+      "category": "media"
+    },
+    {
+      "id": "infoq-cn",
+      "name": "InfoQ 中文",
+      "type": "rss",
+      "url": "https://www.infoq.cn/feed",
+      "level": "second-hand",
+      "category": "media"
+    },
+    {
+      "id": "hn-ai",
+      "name": "Hacker News · AI",
+      "type": "rss",
+      "url": "https://hnrss.org/newest?q=AI",
+      "level": "second-hand",
+      "category": "community"
     }
   ]
 }
