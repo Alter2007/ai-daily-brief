@@ -3,6 +3,7 @@ output/
 logs/
 archive/
 seen.json
+panel.log
 
 # 本地配置与密钥
 .env

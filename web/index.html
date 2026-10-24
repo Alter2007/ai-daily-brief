@@ -251,7 +251,10 @@
           </p>
         </div>
       </div>
-      <div class="bottom"><div class="stat">版本 0.1 · 2026-10-24</div><div class="spacer"></div></div>
+      <div class="bottom"><div class="stat">版本 0.2 · 本地运行 · 关掉本页不会停止服务</div>
+        <div class="spacer"></div>
+        <button class="btn" id="stopBtn">停止服务</button>
+      </div>
     </section>
   </main>
 </div>
@@ -472,6 +475,21 @@ $("#runBtn").onclick = async () => {
 addEventListener("keydown", (e) => {
   if ((e.key === "r" || e.key === "R") && !e.ctrlKey) loadState();
 });
+
+/* 停止服务：先回包再退出，面板跟着变成"已停止" */
+$("#stopBtn").onclick = async () => {
+  const b = $("#stopBtn");
+  b.disabled = true;
+  b.textContent = "正在停止…";
+  try { await fetch("/api/stop", { method: "POST" }); } catch {}
+  b.textContent = "已停止";
+  document.body.style.opacity = "0.45";
+  setTimeout(() => {
+    $(".empty") || (document.querySelector("#list").innerHTML =
+      `<div class="empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>
+       <h3>服务已停止</h3><p>重新双击桌面上的「每日简报助手」即可再次启动</p></div>`);
+  }, 600);
+};
 
 loadState();
 </script>

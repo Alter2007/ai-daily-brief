@@ -118,6 +118,16 @@ const server = http.createServer(async (req, res) => {
 
     if (path === '/api/run' && req.method === 'GET') return json(res, 405, { ok: false, error: 'use POST' });
 
+    // 面板上的「停止服务」按钮打这里：先回包，再退出
+    if (path === '/api/stop' && req.method === 'POST') {
+      json(res, 200, { ok: true, stopping: true });
+      setTimeout(() => {
+        console.log('\n  收到停止请求，服务已关闭。');
+        process.exit(0);
+      }, 250);
+      return;
+    }
+
     // 静态文件
     const file = path === '/' ? 'web/index.html' : join('web', path.replace(/^\/+/, ''));
     const abs = join(root, file);
