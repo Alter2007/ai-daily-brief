@@ -12,10 +12,11 @@
 
 ## 信源
 
-include: vendor, research, policy, media, community
-exclude: arxiv, repo
+include: vendor, research, policy, media
+exclude: arxiv, repo, community
 
 > 行业简报读厂商官网、研究机构、政策与媒体；论文（arxiv）和仓库（repo）留给 `research` 与 `github-watch` 主题。
+> 社区帖（community，如 Hacker News）不进行业简报——信噪比太低：2026-10-25 实测混进过一条 2 分的个人博客，摘要还带着 `Points: 2` 元数据。
 
 ## 加分词（命中 +10，可叠加到 40）
 
