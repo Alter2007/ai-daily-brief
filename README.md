@@ -101,6 +101,20 @@ node src/serve.mjs --dry-run  # 离线演示，用 fixtures 数据
 
 失败的源不会让整次运行失败，只记进 `sources_failed`。
 
+## 云端定时（推荐，不依赖本机）
+
+`.github/workflows/brief.yml` 会在**每天 08:00（北京时间）**自动跑一次：
+
+| 行为 | 说明 |
+|---|---|
+| 触发 | `cron: '0 0 * * *'`（UTC 0 点 = 北京 8 点），也可在 Actions 页手动触发并指定主题/天数 |
+| 产出 | 上传为 artifact（保留 90 天） |
+| 通知 | **发布成一个 Issue**，标题 `AI 日报 YYYY-MM-DD`，手机上能直接看 |
+| 跨天去重 | `seen.json` 用 Actions 缓存保留，不会每天重复报同一批 |
+| 模型摘要 | 可选：在仓库 Settings → Secrets 里加 `DEEPSEEK_API_KEY`，没有就自动用原文摘要 |
+
+这样即使电脑关机，简报也照常生成——本地面板和云端定时互不冲突。
+
 ### 双击启动（Windows）
 
 两种启动方式，任选：

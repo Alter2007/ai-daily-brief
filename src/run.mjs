@@ -31,7 +31,10 @@ items.forEach((p, i) => console.log(`  ${i + 1}. [${p.score}] ${p.title.slice(0,
 console.log(`耗时      ${stats.duration} ms`);
 console.log(`输出      ${rel(paths.wechat)}`);
 
-if (items.length === 0) console.log('提示      无达到标准的内容，已输出「今日无重要更新」');
+if (items.length === 0) {
+  if (res.log?.recall_items) console.log(`提示      今日无新增，已附最近 ${res.log.recall_items} 条回顾（标 ♻️）`);
+  else console.log('提示      无达到标准的内容，已输出「今日无重要更新」');
+}
 
 // 退出码约定：0 正常（含空结果）｜2 全部信源失败（定时任务应当报警）
 if (res.status === 'all_sources_failed') {

@@ -384,13 +384,60 @@ document.querySelectorAll(".tab").forEach((t) => {
   t.onclick = () => {
     document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
     t.classList.add("active");
-    if (t.dataset.tab === "history") {
-      $("#list").innerHTML = `<div class="empty">
-        <svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M3 3l18 18"/></svg>
-        <h3>还没有更早的记录</h3><p>目前只有 2026-10-24 这一天，继续跑几天就会出现在这里</p></div>`;
-    } else renderList();
+    if (t.dataset.tab === "history") loadHistory();
+    else renderList();
   };
 });
+
+/* ---------- 历史归档 ---------- */
+const esc2 = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+async function loadHistory() {
+  const box = $("#list");
+  box.innerHTML = `<div class="empty"><h3>读取归档…</h3></div>`;
+  let list = [];
+  try {
+    const r = await fetch("/api/history", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    list = (await r.json()).items || [];
+  } catch {
+    box.innerHTML = `<div class="empty"><h3>需要启动服务才能看归档</h3><p>双击桌面图标启动后重试</p></div>`;
+    return;
+  }
+  if (!list.length) {
+    box.innerHTML = `<div class="empty"><h3>还没有归档</h3><p>跑过至少一次之后，这里会按日期列出每次的简报</p></div>`;
+    return;
+  }
+  box.innerHTML = list
+    .map(
+      (x, i) => `<div class="row" data-i="${i}" style="cursor:pointer">
+        <div class="num">${String(i + 1).padStart(2, "0")}</div>
+        <div class="info">
+          <div class="title">${esc2(x.date)} · ${esc2(x.topicName || x.topic)}<span class="chip">${x.count} 条${x.recall ? " · 回顾" : ""}</span></div>
+          <div class="who">${esc2(x.file)}</div>
+        </div>
+      </div>`
+    )
+    .join("");
+  box.querySelectorAll(".row").forEach((row) => {
+    row.onclick = () => {
+      const x = list[Number(row.dataset.i)];
+      DATA.brief = (x.items || []).map((b, i) => ({
+        n: String(i + 1).padStart(2, "0"),
+        tag: (b.tags && b.tags[0]) || "动态",
+        title: b.title || "",
+        why: b.why || b.summary || "—",
+        who: b.who || "普通职场人",
+        org: b.org || "",
+        url: b.url || "",
+      }));
+      document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === "today"));
+      renderList();
+      const crumb = document.querySelector(".crumb");
+      if (crumb) crumb.textContent = `归档 ${x.date} · ${x.topicName || x.topic}（点「今天的简报」返回）`;
+    };
+  });
+}
 
 /* 复制全文 */
 $("#copyAll").onclick = async () => {

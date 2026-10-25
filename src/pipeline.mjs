@@ -5,6 +5,7 @@ import { join, resolve, dirname } from 'node:path';
 import {
   readJson, writeText, parseTopic, score, fingerprint, loadSeen,
   renderWechat, renderMd, pickTag, sourceAllowed, selectItems, ymd, stripBom,
+  recentSnapshots,
 } from './lib.mjs';
 import { COLLECTORS } from './sources.mjs';
 import { resolveKey, enrich } from './llm.mjs';
@@ -144,9 +145,39 @@ export async function runOnce(opts = {}) {
   const mdPath = wechatPath.replace(/-wechat\.md$/, '.md');
   const jsonPath = wechatPath.replace(/-wechat\.md$/, '.json');
 
-  const wechat = picked.length
-    ? renderWechat(picked, meta)
-    : `【AI 日报 ${stamp.slice(5)}】今日无重要更新。\n\n— 本次运行：信源 ${tried} 试 ${okSources} 成，失败 ${failures.length} 个；没有达到筛选标准的内容，不凑数。\n`;
+  // 今日无新增时给「回顾」，避免安静日交白卷（回顾条目不会被写进去重表之外的东西）
+  let recall = [];
+  if (!picked.length && !dryRun) {
+    const snaps = await recentSnapshots(join(root, app.output?.dir || 'output'), {
+      excludeStem: `${stamp}-${topic}`,
+      suffix: `-${topic}.json`,
+      limit: 3,
+    });
+    const pool = [];
+    for (const s of snaps) {
+      for (const it of s.items || []) {
+        // 摘要太短的（比如只剩「点击查看原文」）不适合当回顾
+        if ((it.why || it.summary || '').length < 12) continue;
+        pool.push({ ...it, recall: true });
+      }
+    }
+    const uniq = [];
+    const seenFp = new Set();
+    for (const it of pool.sort((a, b) => (b.score || 0) - (a.score || 0))) {
+      const fp = fingerprint(it);
+      if (seenFp.has(fp)) continue;
+      seenFp.add(fp);
+      uniq.push(it);
+      if (uniq.length >= 2) break;
+    }
+    recall = uniq;
+  }
+  const emitted = picked.length ? picked : recall;
+  const metaOut = { ...meta, recall: !picked.length && recall.length > 0, recallCount: recall.length };
+
+  const wechat = emitted.length
+    ? renderWechat(emitted, metaOut)
+    : `【AI 日报 ${stamp.slice(5)}】今日无重要更新。\n\n— 本次运行：信源 ${tried} 试 ${okSources} 成，失败 ${failures.length} 个；没有达到筛选标准的内容，也不凑数。\n`;
 
   if (!dryRun && existsSync(wechatPath)) {
     await writeText(join(root, 'archive/.keep'), '');
@@ -154,8 +185,8 @@ export async function runOnce(opts = {}) {
   }
 
   await writeText(wechatPath, wechat);
-  await writeText(mdPath, renderMd(picked, meta));
-  await writeText(jsonPath, JSON.stringify({ meta, items: picked }, null, 2));
+  await writeText(mdPath, renderMd(emitted, metaOut));
+  await writeText(jsonPath, JSON.stringify({ meta: metaOut, items: emitted }, null, 2));
 
   /* ---- 去重表 & 日志 ---- */
   if (!dryRun) {
@@ -185,6 +216,7 @@ export async function runOnce(opts = {}) {
     scored_pass: scored.length,
     items_kept: picked.length,
     skipped_duplicates: skipped.length,
+    recall_items: recall.length,
     min_score: minScore,
     duration_ms: duration,
     output: wechatPath,

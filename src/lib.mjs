@@ -64,6 +64,9 @@ export function strip(s = '') {
     .replace(/&(amp|lt|gt|quot|apos|nbsp);/g, (m, k) => ENT[k] ?? m)
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
+    .trim()
+    // 实体解码后可能残留裸的 < >（含其后空格），去掉
+    .replace(/^[<>]+|[<>]+$/g, '')
     .trim();
   return x;
 }
@@ -277,13 +280,17 @@ export async function mapLimit(arr, limit, fn) {
 }
 
 export function renderWechat(items, meta) {
-  const head = `【AI 日报 ${md(meta.date)}】共 ${items.length} 条，窗口 ${meta.windowDays} 天`;
+  const recall = !!meta.recall;
+  const head = recall
+    ? `【AI 日报 ${md(meta.date)}】今日无新增，附最近回顾 ${items.length} 条`
+    : `【AI 日报 ${md(meta.date)}】共 ${items.length} 条，窗口 ${meta.windowDays} 天`;
   const body = items
     .map((it, i) => {
       const tag = it.tags?.[0] || '动态';
       const warn = it.breaking ? ' ⚠️破坏性变更' : '';
+      const mark = recall ? '♻️' : `${i + 1}️⃣`;
       return [
-        `${i + 1}️⃣ ${it.title}（${md(new Date(it.date))}）#${tag}${warn}`,
+        `${mark} ${it.title}（${md(new Date(it.date))}）#${tag}${warn}`,
         `💡 重要：${it.why || it.summary || '—'}`,
         `👥 谁关注：${it.who || meta.audience}`,
         `🔗 ${it.org} · ${it.url}`,
@@ -291,8 +298,9 @@ export function renderWechat(items, meta) {
     })
     .join('\n\n');
   const by = meta.llmOk ? `｜摘要由 ${meta.llmModel} 生成` : '';
+  const note = recall ? '\n♻️ 标记者为早前已报过的条目，今日没有新的合格内容，不凑数。\n' : '';
   const foot = `— 本次运行：信源 ${meta.tried} 试 ${meta.ok} 成，失败 ${meta.failed} 个${by}`;
-  return `${head}\n\n${body}\n\n${foot}\n`;
+  return `${head}\n${note}\n${body}\n\n${foot}\n`;
 }
 
 export function renderMd(items, meta) {
@@ -314,6 +322,30 @@ export function renderMd(items, meta) {
     );
   }
   return lines.join('\n');
+}
+
+/* ---------------- 历史快照 ---------------- */
+
+/** 读最近的简报快照（不含 dry-run），按文件名倒序；suffix 用于限定同一主题 */
+export async function recentSnapshots(dir, { excludeStem = null, suffix = null, limit = 3 } = {}) {
+  try {
+    const all = (await readdir(dir)).filter(
+      (f) => f.endsWith('.json') && !f.startsWith('_') && (!suffix || f.endsWith(suffix))
+    );
+    const sorted = all.sort().reverse();
+    const out = [];
+    for (const f of sorted) {
+      if (limit && out.length >= limit) break;
+      if (excludeStem && f.startsWith(excludeStem)) continue;
+      try {
+        const j = JSON.parse(stripBom(await readFile(join(dir, f), 'utf8')));
+        out.push({ file: f, ...j });
+      } catch {}
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }
 
 /* ---------------- 日志 ---------------- */

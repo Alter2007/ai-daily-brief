@@ -134,6 +134,34 @@ const server = http.createServer(async (req, res) => {
   try {
     if (path === '/api/state') return json(res, 200, await state());
 
+    /* 历史归档：列出 output 下所有快照（含条目，便于点开查看） */
+    if (path === '/api/history') {
+      const dir = join(root, 'output');
+      if (!existsSync(dir)) return json(res, 200, { ok: true, items: [] });
+      const { readdir } = await import('node:fs/promises');
+      const files = (await readdir(dir))
+        .filter((f) => f.endsWith('.json') && !f.startsWith('_'))
+        .sort()
+        .reverse()
+        .slice(0, 40);
+      const list = [];
+      for (const f of files) {
+        try {
+          const j = await readJson(join(dir, f));
+          list.push({
+            file: f,
+            date: String(j.meta?.date || '').slice(0, 10),
+            topic: j.meta?.topic || '',
+            topicName: j.meta?.topicName || j.meta?.topic || '',
+            count: (j.items || []).length,
+            recall: !!j.meta?.recall,
+            items: j.items || [],
+          });
+        } catch {}
+      }
+      return json(res, 200, { ok: true, items: list });
+    }
+
     /* 保存 / 清除 DeepSeek key（只写 config/app.local.json，已 gitignore） */
     if (path === '/api/settings' && req.method === 'POST') {
       let body = '';

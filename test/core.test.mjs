@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems, ymd, mapLimit } from '../src/lib.mjs';
+import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems, ymd, mapLimit, recentSnapshots } from '../src/lib.mjs';
 import { resolveKey } from '../src/llm.mjs';
 import { collectGithub } from '../src/sources.mjs';
 import { runOnce } from '../src/pipeline.mjs';
@@ -257,6 +257,38 @@ test('mapLimit 保持顺序且并发不超过上限', async () => {
   });
   assert.deepEqual(out, [2, 4, 6, 8, 10, 12, 14]);
   assert.ok(peak <= 3, '并发峰值应 ≤ 3，实际 ' + peak);
+});
+
+/* ---------------- 回顾与归档 ---------------- */
+
+test('recentSnapshots 只返回同一主题、且可排除当天', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'adb-'));
+  try {
+    const write = (name, topic) =>
+      writeFile(join(dir, name), JSON.stringify({ meta: { topic }, items: [{ title: 'x' }] }));
+    await write('2026-10-24-ai-industry.json', 'ai-industry');
+    await write('2026-10-25-ai-industry.json', 'ai-industry');
+    await write('2026-10-24-research.json', 'research');
+    await write('_dryrun-ai-industry.json', 'ai-industry');
+
+    const all = await recentSnapshots(dir, { suffix: '-ai-industry.json', limit: 3 });
+    assert.equal(all.length, 2, '应只有 2 个正式 ai-industry 快照（排除 _dryrun）');
+
+    const withoutToday = await recentSnapshots(dir, {
+      suffix: '-ai-industry.json',
+      excludeStem: '2026-10-25-ai-industry',
+      limit: 3,
+    });
+    assert.equal(withoutToday.length, 1);
+    assert.equal(withoutToday[0].file, '2026-10-24-ai-industry.json');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('strip 去掉首尾残留的尖括号', () => {
+  assert.equal(strip('&lt;div&gt;点击查看原文&lt;/div&gt;'), '点击查看原文');
+  assert.equal(strip('  正文 &gt;  '), '正文');
 });
 
 /* ---------------- 配置健壮性 ---------------- */

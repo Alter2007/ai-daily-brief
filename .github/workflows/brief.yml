@@ -1,0 +1,68 @@
+name: brief
+
+# 每天 08:00（Asia/Shanghai = 00:00 UTC）自动生成简报，发布为一个 Issue
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: '主题名（config/topics 下的文件名，不含 .md）'
+        default: 'ai-industry'
+      days:
+        description: '窗口天数'
+        default: '3'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # seen.json 是跨天去重表，不提交进仓库；用缓存保留，避免每天重复报同一批
+      - uses: actions/cache@v4
+        with:
+          path: seen.json
+          key: seen-${{ github.run_id }}
+          restore-keys: |
+            seen-
+
+      - name: 生成简报
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          node src/run.mjs --topic "${{ inputs.topic || 'ai-industry' }}" --days "${{ inputs.days || '3' }}"
+
+      - name: 定位产出
+        id: out
+        run: |
+          f=$(ls -t output/*-wechat.md 2>/dev/null | head -1)
+          if [ -z "$f" ]; then echo "没有产出文件"; exit 1; fi
+          echo "file=$f" >> "$GITHUB_OUTPUT"
+          echo "day=$(date +%F)" >> "$GITHUB_OUTPUT"
+          echo "--- 产出预览 ---"; head -20 "$f"
+
+      - name: 保存产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: brief-${{ steps.out.outputs.day }}
+          path: output/
+          retention-days: 90
+
+      # 发布成 Issue：手机上能直接看，天然有历史
+      - name: 发布为 Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "AI 日报 ${{ steps.out.outputs.day }}" \
+            --body-file "${{ steps.out.outputs.file }}" \
+            || echo "Issue 创建失败（可能已存在同日 issue），产物已保存为 artifact"
