@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems } from '../src/lib.mjs';
+import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems, ymd, mapLimit } from '../src/lib.mjs';
 import { resolveKey } from '../src/llm.mjs';
 import { collectGithub } from '../src/sources.mjs';
 import { runOnce } from '../src/pipeline.mjs';
@@ -233,6 +233,44 @@ test('selectItems 按分数截断到 maxItems', () => {
 test('selectItems 过滤掉低于门槛的条目', () => {
   const { picked } = selectItems([mk('毫不相关的内容', { level: 'second-hand' })], { topic: T, minScore: 40 });
   assert.equal(picked.length, 0);
+});
+
+/* ---------------- 日期与并发 ---------------- */
+
+test('ymd 用本地日期，不受 UTC 影响', () => {
+  // 本地 07:00 在 UTC+8 是前一天 23:00，toISOString 会算错
+  assert.equal(ymd(new Date(2026, 9, 25, 7, 0)), '2026-10-25');
+  assert.equal(ymd(new Date(2026, 0, 1, 0, 0)), '2026-01-01');
+  assert.equal(ymd(new Date(2026, 11, 31, 23, 59)), '2026-12-31');
+});
+
+test('mapLimit 保持顺序且并发不超过上限', async () => {
+  let live = 0;
+  let peak = 0;
+  const input = [1, 2, 3, 4, 5, 6, 7];
+  const out = await mapLimit(input, 3, async (n) => {
+    live++;
+    peak = Math.max(peak, live);
+    await new Promise((r) => setTimeout(r, 10));
+    live--;
+    return n * 2;
+  });
+  assert.deepEqual(out, [2, 4, 6, 8, 10, 12, 14]);
+  assert.ok(peak <= 3, '并发峰值应 ≤ 3，实际 ' + peak);
+});
+
+/* ---------------- 配置健壮性 ---------------- */
+
+test('readJson 能容忍 UTF-8 BOM', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'adb-'));
+  try {
+    const p = join(dir, 'cfg.json');
+    await writeFile(p, '\uFEFF{"a":1}', 'utf8');
+    const { readJson } = await import('../src/lib.mjs');
+    assert.deepEqual(await readJson(p), { a: 1 });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 /* ---------------- API key 解析 ---------------- */

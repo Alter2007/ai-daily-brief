@@ -32,3 +32,12 @@ console.log(`耗时      ${stats.duration} ms`);
 console.log(`输出      ${rel(paths.wechat)}`);
 
 if (items.length === 0) console.log('提示      无达到标准的内容，已输出「今日无重要更新」');
+
+// 退出码约定：0 正常（含空结果）｜2 全部信源失败（定时任务应当报警）
+if (res.status === 'all_sources_failed') {
+  console.error(`\n失败      ${stats.tried} 个信源全部不可用，已在 logs/_failed-*.json 留下记录`);
+  process.exit(2);
+}
+if (res.llm?.used && !res.llm.ok) {
+  console.log(`提示      模型摘要失败，已降级为原文摘要：${res.llm.note || ''}`);
+}

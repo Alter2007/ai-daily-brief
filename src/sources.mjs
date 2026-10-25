@@ -1,7 +1,10 @@
 // src/sources.mjs —— 信源适配器：rss / github(releases|commits) / arxiv / web(跳过)
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { httpText, httpJson, parseFeed, hasBreaking } from './lib.mjs';
+import { httpText, httpJson, parseFeed, hasBreaking, mapLimit } from './lib.mjs';
+
+// 串行 16 个源要 20 秒以上；全并发又容易被站点限流。折中到 4。
+const CONCURRENCY = 4;
 
 async function fixture(name, root) {
   return readFile(join(root || process.cwd(), 'fixtures', name), 'utf8');
@@ -11,20 +14,30 @@ async function fixture(name, root) {
 
 export async function collectRss(cfg, opts = {}) {
   const out = { items: [], failures: [], tried: 0, ok: 0 };
-  for (const s of cfg.sources || []) {
-    if (s.type === 'web') continue; // code 模式跳过需要渲染的页面
-    out.tried++;
+  const list = (cfg.sources || []).filter((s) => s.type !== 'web'); // code 模式跳过需要渲染的页面
+  out.tried = list.length;
+
+  const results = await mapLimit(list, CONCURRENCY, async (s) => {
     try {
       const xml = opts.dryRun ? await fixture('rss.xml', opts.root) : await httpText(s.url);
-      const entries = parseFeed(xml);
+      return { ok: true, entries: parseFeed(xml) };
+    } catch (e) {
+      return { ok: false, error: String(e.message || e) };
+    }
+  });
+
+  list.forEach((s, i) => {
+    const r = results[i];
+    if (r?.ok) {
       out.ok++;
-      for (const e of entries) {
+      for (const e of r.entries) {
         out.items.push({ ...e, org: s.name, level: s.level, source: s.id });
       }
-    } catch (e) {
-      out.failures.push({ source: s.id, url: s.url, error: String(e.message || e) });
+    } else {
+      out.failures.push({ source: s.id, url: s.url, error: r?.error || 'unknown' });
     }
-  }
+  });
+
   return out;
 }
 

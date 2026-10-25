@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import {
   readJson, writeText, parseTopic, score, fingerprint, loadSeen,
-  renderWechat, renderMd, pickTag, sourceAllowed, selectItems,
+  renderWechat, renderMd, pickTag, sourceAllowed, selectItems, ymd, stripBom,
 } from './lib.mjs';
 import { COLLECTORS } from './sources.mjs';
 import { resolveKey, enrich } from './llm.mjs';
@@ -24,7 +24,7 @@ export async function runOnce(opts = {}) {
   const dryRun = !!opts.dryRun;
   const onlySources = (opts.onlySources || []).filter(Boolean);
 
-  const topicMd = await readFile(join(root, 'config/topics', topic + '.md'), 'utf8');
+  const topicMd = stripBom(await readFile(join(root, 'config/topics', topic + '.md'), 'utf8'));
   const topicRules = parseTopic(topicMd);
   const topicTitle = (topicMd.match(/^#\s+主题[:：]\s*(.+)$/m) || [])[1] || topic;
 
@@ -135,7 +135,8 @@ export async function runOnce(opts = {}) {
     llmModel: llm.model,
   };
 
-  const stamp = meta.date.toISOString().slice(0, 10);
+  // 本地日期：toISOString 是 UTC，早于 08:00 会把文件名写成前一天
+  const stamp = ymd(meta.date);
   const defaultName = dryRun ? `_dryrun-${topic}-wechat.md` : `${stamp}-${topic}-wechat.md`;
   const wechatPath = opts.outPath
     ? (opts.outPath.startsWith(root) ? opts.outPath : join(root, opts.outPath))
@@ -163,6 +164,15 @@ export async function runOnce(opts = {}) {
   }
 
   const duration = Date.now() - t0;
+  const allFailed = tried > 0 && okSources === 0;
+  const status = allFailed
+    ? 'all_sources_failed'
+    : failures.length
+      ? picked.length
+        ? 'ok_with_source_failure'
+        : 'empty'
+      : 'ok';
+
   const entry = {
     run_id: `${stamp}-${topic}`,
     trigger: opts.trigger || (dryRun ? 'dry-run' : 'manual'),
@@ -179,14 +189,22 @@ export async function runOnce(opts = {}) {
     duration_ms: duration,
     output: wechatPath,
     llm: { used: llm.used, ok: llm.ok, model: llm.model, ms: llm.ms, note: llm.note || undefined },
-    status: failures.length ? (picked.length ? 'ok_with_source_failure' : 'empty') : 'ok',
+    status,
   };
   if (!dryRun) {
     await writeText(join(root, app.logging?.dir || 'logs', `${stamp}.jsonl`), JSON.stringify(entry) + '\n');
+    // 全部信源挂掉时留一个显眼的失败标记，别让定时任务静默失败
+    if (allFailed) {
+      await writeText(
+        join(root, app.logging?.dir || 'logs', `_failed-${stamp}.json`),
+        JSON.stringify({ stamp, ranAt: new Date().toISOString(), tried, failures }, null, 2),
+      );
+    }
   }
 
   return {
-    ok: true,
+    ok: !allFailed,
+    status,
     meta,
     items: picked,
     failures,

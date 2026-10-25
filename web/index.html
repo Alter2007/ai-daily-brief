@@ -439,6 +439,19 @@ async function loadState() {
     applyKeyState();
   }
 
+  // 并发守卫：服务端已在跑就别让再点
+  const rb = $("#runBtn");
+  if (rb) {
+    if (st.running) {
+      const secs = Math.round((Date.now() - st.running.startedAt) / 1000);
+      rb.textContent = `运行中 ${secs}s…`;
+      rb.disabled = true;
+    } else if (rb.disabled && /运行中/.test(rb.textContent)) {
+      rb.textContent = "获取简报";
+      rb.disabled = false;
+    }
+  }
+
   if (st.brief?.items?.length) {
     DATA.brief = st.brief.items.map((b, i) => ({
       n: String(i + 1).padStart(2, "0"),
@@ -481,7 +494,7 @@ async function loadState() {
 $("#runBtn").onclick = async () => {
   const btn = $("#runBtn");
   if (document.body.dataset.mode !== "live") return;
-  const old = btn.textContent;
+  const old = "获取简报";
   btn.textContent = "运行中…";
   btn.disabled = true;
   try {
@@ -489,12 +502,14 @@ $("#runBtn").onclick = async () => {
       method: "POST", headers: { "content-type": "application/json" }, body: "{}",
     });
     const j = await r.json();
-    btn.textContent = j.ok ? `完成 ${j.stats?.kept ?? 0} 条` : "失败";
+    if (r.status === 409) btn.textContent = "已在运行";
+    else if (!j.ok) btn.textContent = j.status === "all_sources_failed" ? "信源全挂" : "失败";
+    else btn.textContent = j.llm?.ok ? `完成 ${j.stats?.kept ?? 0} 条 · 已生成摘要` : `完成 ${j.stats?.kept ?? 0} 条`;
     await loadState();
   } catch {
     btn.textContent = "运行失败";
   }
-  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2200);
+  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2400);
 };
 
 addEventListener("keydown", (e) => {

@@ -33,6 +33,9 @@ const json = (res, code, obj) => {
   res.end(body);
 };
 
+/** 当前是否有一次运行在跑（并发守卫） */
+let RUNNING = null;
+
 /* ---------- 本地设置（API key）---------- */
 
 const LOCAL_CFG = () => join(root, 'config/app.local.json');
@@ -107,6 +110,7 @@ async function state() {
     runs,
     brief,
     settings,
+    running: RUNNING ? { startedAt: RUNNING.startedAt, topic: RUNNING.topic } : null,
     dryRun: DRY,
     now: new Date().toISOString(),
   };
@@ -178,30 +182,46 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (path === '/api/run' && req.method === 'POST') {
+      // 并发守卫：连点两次不该跑两遍、写两次文件
+      if (RUNNING) {
+        return json(res, 409, {
+          ok: false,
+          error: '已有一次运行在进行中',
+          runningFor: Date.now() - RUNNING.startedAt,
+        });
+      }
       let body = '';
       for await (const chunk of req) body += chunk;
       let opts = {};
       try {
         opts = body ? JSON.parse(body) : {};
       } catch {}
+
+      RUNNING = { startedAt: Date.now(), topic: opts.topic || null };
       const started = Date.now();
-      const out = await runOnce({
-        root,
-        topic: opts.topic,
-        days: opts.days,
-        dryRun: opts.dryRun ?? DRY,
-        llm: opts.llm,
-        trigger: 'panel',
-      });
-      return json(res, 200, {
-        ok: true,
-        elapsed: Date.now() - started,
-        stats: out.stats,
-        llm: out.llm,
-        items: out.items.map((i) => ({ title: i.title, score: i.score, url: i.url, why: i.why, who: i.who })),
-        failures: out.failures,
-        paths: out.paths,
-      });
+      try {
+        const out = await runOnce({
+          root,
+          topic: opts.topic,
+          days: opts.days,
+          dryRun: opts.dryRun ?? DRY,
+          llm: opts.llm,
+          trigger: 'panel',
+        });
+        return json(res, out.ok ? 200 : 502, {
+          ok: out.ok,
+          status: out.status,
+          error: out.ok ? undefined : '全部信源不可用，已记录到 logs/_failed-*.json',
+          elapsed: Date.now() - started,
+          stats: out.stats,
+          llm: out.llm,
+          items: out.items.map((i) => ({ title: i.title, score: i.score, url: i.url, why: i.why, who: i.who })),
+          failures: out.failures,
+          paths: out.paths,
+        });
+      } finally {
+        RUNNING = null;
+      }
     }
 
     if (path === '/api/run' && req.method === 'GET') return json(res, 405, { ok: false, error: 'use POST' });

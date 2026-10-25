@@ -3,7 +3,10 @@ import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
-export const readJson = async (p) => JSON.parse(await readFile(p, 'utf8'));
+/** 去掉 UTF-8 BOM：记事本另存的文件常带 BOM，JSON.parse 会直接炸 */
+export const stripBom = (s) => (s.charCodeAt(0) === 0xfeff ? s.slice(1) : s);
+
+export const readJson = async (p) => JSON.parse(stripBom(await readFile(p, 'utf8')));
 
 export async function writeText(p, s) {
   await mkdir(dirname(p), { recursive: true });
@@ -253,6 +256,25 @@ export async function loadSeen(seenPath, dedupeDays) {
 /* ---------------- 渲染 ---------------- */
 
 const md = (d) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 本地日期 YYYY-MM-DD。不要用 toISOString：那是 UTC，早于 08:00 会算成前一天。 */
+export const ymd = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 受限并发 map，保持顺序。fetch 全串行太慢，全并发又可能被限流。 */
+export async function mapLimit(arr, limit, fn) {
+  const out = new Array(arr.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit || 1, arr.length) }, async () => {
+    while (true) {
+      const i = next++;
+      if (i >= arr.length) return;
+      out[i] = await fn(arr[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
 
 export function renderWechat(items, meta) {
   const head = `【AI 日报 ${md(meta.date)}】共 ${items.length} 条，窗口 ${meta.windowDays} 天`;
