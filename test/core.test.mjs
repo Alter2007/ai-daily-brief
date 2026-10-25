@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems } from '../src/lib.mjs';
+import { resolveKey } from '../src/llm.mjs';
 import { collectGithub } from '../src/sources.mjs';
 import { runOnce } from '../src/pipeline.mjs';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 /* ---------------- 文本清洗 ---------------- */
 
@@ -229,6 +233,47 @@ test('selectItems 按分数截断到 maxItems', () => {
 test('selectItems 过滤掉低于门槛的条目', () => {
   const { picked } = selectItems([mk('毫不相关的内容', { level: 'second-hand' })], { topic: T, minScore: 40 });
   assert.equal(picked.length, 0);
+});
+
+/* ---------------- API key 解析 ---------------- */
+
+async function withTempRoot(fn) {
+  const dir = await mkdtemp(join(tmpdir(), 'adb-'));
+  await mkdir(join(dir, 'config'), { recursive: true });
+  const prev = process.env.DEEPSEEK_API_KEY;
+  delete process.env.DEEPSEEK_API_KEY;
+  try {
+    return await fn(dir);
+  } finally {
+    if (prev === undefined) delete process.env.DEEPSEEK_API_KEY;
+    else process.env.DEEPSEEK_API_KEY = prev;
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+test('resolveKey 无 key 时返回 null', async () => {
+  await withTempRoot(async (dir) => {
+    assert.equal(await resolveKey(dir), null);
+  });
+});
+
+test('resolveKey 从 config/app.local.json 读取', async () => {
+  await withTempRoot(async (dir) => {
+    await writeFile(join(dir, 'config/app.local.json'), JSON.stringify({ deepseekKey: 'sk-unit-test-123' }));
+    const k = await resolveKey(dir);
+    assert.equal(k?.key, 'sk-unit-test-123');
+    assert.equal(k?.from, 'file');
+  });
+});
+
+test('resolveKey 环境变量优先于文件', async () => {
+  await withTempRoot(async (dir) => {
+    await writeFile(join(dir, 'config/app.local.json'), JSON.stringify({ deepseekKey: 'sk-from-file' }));
+    process.env.DEEPSEEK_API_KEY = 'sk-from-env';
+    const k = await resolveKey(dir);
+    assert.equal(k?.key, 'sk-from-env');
+    assert.equal(k?.from, 'env');
+  });
 });
 
 /* ---------------- 端到端（离线） ---------------- */

@@ -50,12 +50,30 @@ node src/serve.mjs            # 真实抓取，监听 127.0.0.1:4177
 node src/serve.mjs --dry-run  # 离线演示，用 fixtures 数据
 ```
 
-打开 <http://127.0.0.1:4177> 就是那个三栏界面：左侧导航、中间条目、底部运行记录。点「立即运行」会真的跑一次流水线并刷新列表。
+打开 <http://127.0.0.1:4177> 就是那个三栏界面：左侧导航、中间条目、底部运行记录。点「获取简报」会真的跑一次流水线并刷新列表。
+
+### 接入 DeepSeek：让模型写「为什么重要」
+
+面板 →「设置」页 → 粘贴 DeepSeek API Key → **测试** → **保存**。之后点「获取简报」，每条的两个判断由 `deepseek-chat` 生成：
+
+| 位置 | 内容 | 谁写的 |
+|---|---|---|
+| 💡 重要 | 为什么重要，≤40 字 | 模型判断 |
+| 👥 谁关注 | 适合谁看，≤20 字 | 模型判断 |
+| 标题 / 日期 / 🔗 来源 | 事实与链接 | 永远来自原始信源，模型不参与 |
+
+- Key 写入 `config/app.local.json`（**已 gitignore，不进仓库**）；也支持环境变量 `DEEPSEEK_API_KEY`，优先级更高
+- 面板只显示掩码（`sk-xx…abcd`），`/api/state` 从不回传明文
+- 调用失败（key 无效、网络断）会自动**降级为原文摘要**，运行不中断，日志里记 `llm.ok=false` 和原因
+- 不想放进文件就用环境变量：`set DEEPSEEK_API_KEY=sk-...` 后启动
 
 | 接口 | 说明 |
 |---|---|
-| `GET /api/state` | 配置、主题列表、信源、最近 20 次运行、最新简报 |
-| `POST /api/run` | 触发一次运行，body 可传 `{ "topic": "...", "days": 3, "dryRun": false }` |
+| `GET /api/state` | 配置、主题、信源、最近 20 次运行、最新简报、`settings`（只有 hasKey / keyMask / model） |
+| `POST /api/run` | 触发一次运行，body 可传 `{ "topic": "...", "days": 3, "dryRun": false, "llm": false }` |
+| `POST /api/settings` | 保存或清除 key：`{ "deepseekKey": "sk-..." }` 或 `{ "clear": true }` |
+| `POST /api/settings/test` | 用当前 key 调一次模型，验证连通 |
+| `POST /api/stop` | 停止服务 |
 
 服务只监听回环地址，不对外暴露；Ctrl+C 即停，不留后台进程。
 

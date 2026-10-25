@@ -7,6 +7,7 @@ import {
   renderWechat, renderMd, pickTag, sourceAllowed, selectItems,
 } from './lib.mjs';
 import { COLLECTORS } from './sources.mjs';
+import { resolveKey, enrich } from './llm.mjs';
 
 /**
  * 跑一次完整流程。
@@ -93,6 +94,31 @@ export async function runOnce(opts = {}) {
     topic: topicRules,
   });
 
+  /* ---- 可选：用 DeepSeek 写「为什么重要 / 谁该看」---- */
+  const llm = { used: false, ok: false, model: null, ms: 0, note: '' };
+  if (picked.length && opts.llm !== false) {
+    const k = await resolveKey(root);
+    if (!k) {
+      llm.note = '未配置 key，使用原文摘要';
+    } else {
+      llm.used = true;
+      llm.keyFrom = k.from;
+      try {
+        const out = await enrich(picked, k.key, { model: opts.model });
+        if (out) {
+          picked.length = 0;
+          picked.push(...out.items);
+          llm.ok = true;
+          llm.model = out.model;
+          llm.ms = out.ms;
+          llm.usage = out.usage;
+        }
+      } catch (e) {
+        llm.note = '调用失败：' + String(e.message || e).slice(0, 120);
+      }
+    }
+  }
+
   /* ---- 渲染 ---- */
   const meta = {
     date: new Date(),
@@ -105,6 +131,8 @@ export async function runOnce(opts = {}) {
     failed: failures.length,
     maxItems,
     minScore,
+    llmOk: llm.ok,
+    llmModel: llm.model,
   };
 
   const stamp = meta.date.toISOString().slice(0, 10);
@@ -150,6 +178,7 @@ export async function runOnce(opts = {}) {
     min_score: minScore,
     duration_ms: duration,
     output: wechatPath,
+    llm: { used: llm.used, ok: llm.ok, model: llm.model, ms: llm.ms, note: llm.note || undefined },
     status: failures.length ? (picked.length ? 'ok_with_source_failure' : 'empty') : 'ok',
   };
   if (!dryRun) {
@@ -161,6 +190,7 @@ export async function runOnce(opts = {}) {
     meta,
     items: picked,
     failures,
+    llm,
     stats: { tried, okSources, candidates: items.length, scoredPass: scored.length, kept: picked.length, duration },
     paths: { wechat: wechatPath, md: mdPath, json: jsonPath },
     log: entry,

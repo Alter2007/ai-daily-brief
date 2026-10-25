@@ -174,7 +174,7 @@
         <div class="field">
           <input id="q" placeholder="粘贴链接或关键词，立刻单独抓一条…">
         </div>
-        <button class="btn" id="runBtn">立即运行</button>
+        <button class="btn" id="runBtn">获取简报</button>
         <button class="btn dark" id="copyAll">复制全文</button>
       </div>
       <div class="toolbar">
@@ -236,22 +236,42 @@
     <!-- 关于 -->
     <section class="view" id="v-about">
       <div class="head">
-        <h1>关于与推送</h1>
-        <p>本地运行，不对外发布；推送需要你自己填企业微信密钥</p>
+        <h1>设置</h1>
+        <p>填入 DeepSeek API Key 后，简报的「为什么重要 / 谁该看」由模型来写</p>
       </div>
-      <div class="toolbar"><div class="crumb">零污染声明</div></div>
+
+      <div class="toolbar"><div class="crumb">DeepSeek 连接</div>
+        <div class="right"><span id="keyState">未配置</span></div>
+      </div>
+      <div class="body" style="padding:22px">
+        <div style="max-width:760px">
+          <div class="bar" style="padding:0 0 14px">
+            <div class="field" style="flex:1">
+              <input id="keyInput" type="password" placeholder="sk-... 粘贴 DeepSeek API Key" autocomplete="off" spellcheck="false">
+            </div>
+            <button class="btn" id="keyTest">测试</button>
+            <button class="btn dark" id="keySave">保存</button>
+          </div>
+          <p style="font-size:12.5px;line-height:1.9;color:#5c636d">
+            · Key 只写入本机 <span class="code">config/app.local.json</span>（已 gitignore，不会进仓库）<br>
+            · 页面只显示掩码，接口不会回传明文<br>
+            · 用途仅限调用 <span class="code">api.deepseek.com</span> 生成摘要，不发给别处
+          </p>
+          <div id="keyMsg" style="font-size:12.5px;margin-top:10px;min-height:20px"></div>
+          <p style="margin-top:18px"><button class="btn" id="keyClear">清除已保存的 Key</button></p>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-top:-6px"><div class="crumb">零污染声明</div></div>
       <div class="body" style="padding:22px">
         <div style="font-size:13px;line-height:2;color:#2a2e35;max-width:760px">
           <p>· 不安装软件，不改注册表 / PATH，不设开机自启，不起常驻进程。</p>
           <p>· 所有产物在一个文件夹里，删掉就没了。</p>
           <p>· 定时靠应用在线：关了就静默不跑，恢复后只补最近一次。</p>
           <p>· 不碰个人微信的非官方手段。</p>
-          <p style="margin-top:14px;color:#9aa1ab;font-size:12px">
-            推送命令：<span class="code">node push-wechat.mjs output/2026-10-24-wechat.md</span>
-          </p>
         </div>
       </div>
-      <div class="bottom"><div class="stat">版本 0.2 · 本地运行 · 关掉本页不会停止服务</div>
+      <div class="bottom"><div class="stat">版本 0.3 · 本地运行 · 关掉本页不会停止服务</div>
         <div class="spacer"></div>
         <button class="btn" id="stopBtn">停止服务</button>
       </div>
@@ -414,6 +434,11 @@ async function loadState() {
   }
   document.body.dataset.mode = "live";
 
+  if (st.settings) {
+    SETTINGS = st.settings;
+    applyKeyState();
+  }
+
   if (st.brief?.items?.length) {
     DATA.brief = st.brief.items.map((b, i) => ({
       n: String(i + 1).padStart(2, "0"),
@@ -489,6 +514,81 @@ $("#stopBtn").onclick = async () => {
       `<div class="empty"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>
        <h3>服务已停止</h3><p>重新双击桌面上的「每日简报助手」即可再次启动</p></div>`);
   }, 600);
+};
+
+/* ---------- DeepSeek key 设置 ---------- */
+let SETTINGS = { hasKey: false, keyMask: null, model: "deepseek-chat" };
+
+function applyKeyState() {
+  const el = $("#keyState");
+  if (!el) return;
+  if (SETTINGS.hasKey) {
+    el.textContent = "已配置 " + (SETTINGS.keyMask || "") + " · " + SETTINGS.model;
+    el.style.color = "#0f7b5f";
+  } else {
+    el.textContent = "未配置 · 简报将使用原文摘要";
+    el.style.color = "#b06a0a";
+  }
+}
+
+function keyMsg(text, ok) {
+  const el = $("#keyMsg");
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = ok ? "#0f7b5f" : "#c2453a";
+}
+
+$("#keySave").onclick = async () => {
+  const v = $("#keyInput").value.trim();
+  if (!v) return keyMsg("先粘贴 key 再保存", false);
+  const btn = $("#keySave");
+  btn.disabled = true;
+  keyMsg("保存中…", true);
+  try {
+    const r = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deepseekKey: v }),
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "保存失败");
+    SETTINGS = j;
+    applyKeyState();
+    $("#keyInput").value = "";
+    keyMsg("已保存到 config/app.local.json，" + SETTINGS.model + " 可用", true);
+  } catch (e) {
+    keyMsg("保存失败：" + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("#keyTest").onclick = async () => {
+  keyMsg("测试中…", true);
+  try {
+    const r = await fetch("/api/settings/test", { method: "POST" });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "调用失败");
+    keyMsg("连接正常，模型返回：" + (j.reply || "(空)"), true);
+  } catch (e) {
+    keyMsg("测试失败：" + e.message, false);
+  }
+};
+
+$("#keyClear").onclick = async () => {
+  try {
+    const r = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ clear: true }),
+    });
+    const j = await r.json();
+    SETTINGS = j;
+    applyKeyState();
+    keyMsg("已清除本机保存的 key", true);
+  } catch (e) {
+    keyMsg("清除失败：" + e.message, false);
+  }
 };
 
 loadState();

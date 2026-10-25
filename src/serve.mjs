@@ -2,11 +2,12 @@
 // src/serve.mjs —— 零依赖本地服务：面板 + 真实数据 + 一键运行
 // 用法：node src/serve.mjs [--port 4177] [--dry-run]
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, resolve, extname } from 'node:path';
+import { join, resolve, extname, dirname } from 'node:path';
 import { readJson, readLogs } from './lib.mjs';
 import { runOnce } from './pipeline.mjs';
+import { resolveKey, MODEL } from './llm.mjs';
 
 const argv = process.argv.slice(2);
 const arg = (k, d = null) => {
@@ -31,6 +32,31 @@ const json = (res, code, obj) => {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
   res.end(body);
 };
+
+/* ---------- 本地设置（API key）---------- */
+
+const LOCAL_CFG = () => join(root, 'config/app.local.json');
+const maskKey = (k) => `${String(k).slice(0, 5)}…${String(k).slice(-4)}`;
+
+async function readLocalCfg() {
+  const p = LOCAL_CFG();
+  if (!existsSync(p)) return {};
+  try {
+    return JSON.parse(await readFile(p, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+async function writeLocalCfg(patch) {
+  const p = LOCAL_CFG();
+  const cur = await readLocalCfg();
+  const next = { ...cur, ...patch };
+  for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
+  await mkdir(dirname(p), { recursive: true });
+  await writeFile(p, JSON.stringify(next, null, 2) + '\n', 'utf8');
+  return next;
+}
 
 /** 找最新的简报 JSON 快照（优先正式产出，其次 dry-run） */
 async function latestBrief() {
@@ -66,6 +92,7 @@ async function state() {
     const cfg = await readJson(p);
     for (const s of cfg.sources || []) sources.push({ id: s.id, name: s.name, type: s.type, url: s.url, level: s.level });
   }
+  const settings = await readSettings();
   return {
     ok: true,
     app: {
@@ -79,8 +106,20 @@ async function state() {
     sources,
     runs,
     brief,
+    settings,
     dryRun: DRY,
     now: new Date().toISOString(),
+  };
+}
+
+/** key 只回掩码，绝不回明文 */
+async function readSettings() {
+  const k = await resolveKey(root);
+  return {
+    hasKey: !!k,
+    keyFrom: k ? k.from : null,
+    keyMask: k ? maskKey(k.key) : null,
+    model: MODEL,
   };
 }
 
@@ -90,6 +129,53 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (path === '/api/state') return json(res, 200, await state());
+
+    /* 保存 / 清除 DeepSeek key（只写 config/app.local.json，已 gitignore） */
+    if (path === '/api/settings' && req.method === 'POST') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      let opts = {};
+      try {
+        opts = body ? JSON.parse(body) : {};
+      } catch {}
+
+      if (opts.clear) {
+        await writeLocalCfg({ deepseekKey: undefined });
+        return json(res, 200, { ok: true, ...(await readSettings()) });
+      }
+
+      const key = String(opts.deepseekKey || '').trim();
+      if (key.length < 10 || !/^[\w-]+$/.test(key)) {
+        return json(res, 400, { ok: false, error: 'key 格式不对（应为 sk- 开头的长串）' });
+      }
+      await writeLocalCfg({ deepseekKey: key });
+      return json(res, 200, { ok: true, ...(await readSettings()) });
+    }
+
+    /* 用当前 key 试跑一次，只验证连通性，不产出文件 */
+    if (path === '/api/settings/test' && req.method === 'POST') {
+      const k = await resolveKey(root);
+      if (!k) return json(res, 400, { ok: false, error: '还没填 key' });
+      try {
+        const { data } = await (async () => {
+          const r = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', authorization: `Bearer ${k.key}` },
+            body: JSON.stringify({
+              model: MODEL,
+              messages: [{ role: 'user', content: '回复两个字：可用' }],
+              max_tokens: 8,
+            }),
+            signal: AbortSignal.timeout(20000),
+          });
+          return { data: { status: r.status, text: await r.text() } };
+        })();
+        if (data.status !== 200) return json(res, 400, { ok: false, error: 'HTTP ' + data.status, detail: data.text.slice(0, 200) });
+        return json(res, 200, { ok: true, reply: JSON.parse(data.text).choices?.[0]?.message?.content || '' });
+      } catch (e) {
+        return json(res, 500, { ok: false, error: String(e.message || e).slice(0, 160) });
+      }
+    }
 
     if (path === '/api/run' && req.method === 'POST') {
       let body = '';
@@ -104,13 +190,15 @@ const server = http.createServer(async (req, res) => {
         topic: opts.topic,
         days: opts.days,
         dryRun: opts.dryRun ?? DRY,
+        llm: opts.llm,
         trigger: 'panel',
       });
       return json(res, 200, {
         ok: true,
         elapsed: Date.now() - started,
         stats: out.stats,
-        items: out.items.map((i) => ({ title: i.title, score: i.score, url: i.url })),
+        llm: out.llm,
+        items: out.items.map((i) => ({ title: i.title, score: i.score, url: i.url, why: i.why, who: i.who })),
         failures: out.failures,
         paths: out.paths,
       });

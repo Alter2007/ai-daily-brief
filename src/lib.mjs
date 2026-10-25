@@ -262,13 +262,14 @@ export function renderWechat(items, meta) {
       const warn = it.breaking ? ' ⚠️破坏性变更' : '';
       return [
         `${i + 1}️⃣ ${it.title}（${md(new Date(it.date))}）#${tag}${warn}`,
-        `💡 重要：${it.summary || '—'}`,
-        `👥 谁关注：${meta.audience}`,
+        `💡 重要：${it.why || it.summary || '—'}`,
+        `👥 谁关注：${it.who || meta.audience}`,
         `🔗 ${it.org} · ${it.url}`,
       ].join('\n');
     })
     .join('\n\n');
-  const foot = `— 本次运行：信源 ${meta.tried} 试 ${meta.ok} 成，失败 ${meta.failed} 个`;
+  const by = meta.llmOk ? `｜摘要由 ${meta.llmModel} 生成` : '';
+  const foot = `— 本次运行：信源 ${meta.tried} 试 ${meta.ok} 成，失败 ${meta.failed} 个${by}`;
   return `${head}\n\n${body}\n\n${foot}\n`;
 }
 
@@ -283,8 +284,8 @@ export function renderMd(items, meta) {
     lines.push(
       `## ${it.title}${it.breaking ? ' ⚠️ 破坏性变更' : ''}`,
       '',
-      `- **为什么重要**：${it.summary || '—'}`,
-      `- **谁该看**：${meta.audience}`,
+      `- **为什么重要**：${it.why || it.summary || '—'}`,
+      `- **谁该看**：${it.who || meta.audience}`,
       `- **来源**：${it.org} · <${it.url}>`,
       `- **分数**：${it.score}`,
       ''
