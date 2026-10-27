@@ -155,20 +155,34 @@ export function sourceAllowed(src, filter = {}) {
   return true;
 }
 
-/* 分类标签：先看主题里给的分类，再用内置关键词兜底 */
+/* 分类标签：先看主题里给的分类，再用内置关键词兜底（中英双语——英文源很常见） */
 const TAG_RULES = [
-  ['风险', ['漏洞', '泄露', '安全', '停服', '下线', '监管', '立法', '封禁', '诉讼', '裁员']],
-  ['产品', ['发布', '上线', '定价', '免费', '涨价', '降价', '集成', '预约', '发售']],
-  ['技术', ['开源', '论文', '模型', 'benchmark', '上下文', '框架', '推理', '训练', 'release', 'feat']],
-  ['行业', ['收购', '融资', '合作', '投资', '席位', '全员', '生态', '联盟', '基金会']],
+  ['风险', ['漏洞', '泄露', '安全', '停服', '下线', '监管', '立法', '封禁', '诉讼', '裁员',
+    'vulnerability', 'breach', 'exploit', 'lawsuit', 'layoff', 'outage', 'security', 'fine', 'banned']],
+  ['产品', ['发布', '上线', '定价', '免费', '涨价', '降价', '集成', '预约', '发售',
+    'launch', 'release', 'ships', 'pricing', 'subscription', 'feature', 'available', 'rollout']],
+  ['技术', ['开源', '论文', '模型', 'benchmark', '上下文', '框架', '推理', '训练', 'feat',
+    'model', 'inference', 'chip', 'gpu', 'training', 'agent', 'research', 'conjecture']],
+  ['行业', ['收购', '融资', '合作', '投资', '席位', '全员', '生态', '联盟', '基金会',
+    'raise', 'funding', 'acquisition', 'partnership', 'invest', 'valuation', 'ipo', 'deal', 'backs', 'series a']],
 ];
 
 export function pickTag(item) {
   const text = (item.title + ' ' + (item.summary || '')).toLowerCase();
+  const priority = ['风险', '行业', '产品', '技术'];
+  let best = null;
+  let bestN = 0;
   for (const [tag, words] of TAG_RULES) {
-    if (words.some((w) => text.includes(w.toLowerCase()))) return tag;
+    let n = 0;
+    for (const w of words) if (w && text.includes(w.toLowerCase())) n++;
+    if (n === 0) continue;
+    // 命中数优先；并列时按 风险 > 行业 > 产品 > 技术
+    if (n > bestN || (n === bestN && priority.indexOf(tag) < priority.indexOf(best))) {
+      best = tag;
+      bestN = n;
+    }
   }
-  return '动态';
+  return best || '动态';
 }
 
 /** 从 release 正文里找破坏性变更 */

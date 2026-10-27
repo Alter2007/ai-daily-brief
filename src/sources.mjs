@@ -19,7 +19,8 @@ export async function collectRss(cfg, opts = {}) {
 
   const results = await mapLimit(list, CONCURRENCY, async (s) => {
     try {
-      const xml = opts.dryRun ? await fixture('rss.xml', opts.root) : await httpText(s.url);
+      // 慢站（MIT News 曾要 12 秒）在并发下容易被默认 20 秒掐断，放宽到 25 秒
+      const xml = opts.dryRun ? await fixture('rss.xml', opts.root) : await httpText(s.url, { timeout: 25000 });
       return { ok: true, entries: parseFeed(xml) };
     } catch (e) {
       return { ok: false, error: String(e.message || e) };

@@ -82,6 +82,15 @@ export async function runOnce(opts = {}) {
   const seenPath = join(root, 'seen.json');
   const seen = dryRun ? {} : await loadSeen(seenPath, app.dedupe_days || 7);
 
+  // 同一天重跑不应该越跑越少：今天已记录的不算"已报过"，否则重跑会把当天的池子吃掉
+  if (!dryRun) {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    for (const [fp, ts] of Object.entries(seen)) {
+      if (ts >= dayStart.getTime()) delete seen[fp];
+    }
+  }
+
   const filtered = items.filter((it) => {
     if (dryRun) return true;
     const t = it.date ? Date.parse(it.date) : NaN;
