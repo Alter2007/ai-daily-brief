@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems, ymd, mapLimit, recentSnapshots } from '../src/lib.mjs';
+import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems, ymd, mapLimit, recentSnapshots, isWeakSummary } from '../src/lib.mjs';
 import { resolveKey } from '../src/llm.mjs';
 import { collectGithub } from '../src/sources.mjs';
 import { runOnce } from '../src/pipeline.mjs';
@@ -261,7 +261,23 @@ test('mapLimit 保持顺序且并发不超过上限', async () => {
 
 /* ---------------- 回顾与归档 ---------------- */
 
-test('recentSnapshots 只返回同一主题、且可排除当天', async () => {
+/* ---------------- 摘要质量 ---------------- */
+
+test('isWeakSummary 识别占位串 / 过短 / 纯链接', () => {
+  assert.equal(isWeakSummary('点击查看原文'), true, 'InfoQ 的占位串');
+  assert.equal(isWeakSummary('点击查看原文>'), true);
+  assert.equal(isWeakSummary('短'), true, '少于 12 字');
+  assert.equal(isWeakSummary('https://example.com/a'), true, '只有链接');
+  assert.equal(isWeakSummary(''), true);
+  assert.equal(
+    isWeakSummary('The financing gives SpaceX another way to fund its AI ambitions.'),
+    false,
+    '正常英文摘要不算弱'
+  );
+  assert.equal(isWeakSummary('新版本在智能指数上提升 3 分，长程任务表现更好。'), false);
+});
+
+test('快照选择：同一主题、排除当天、跳过 dry-run', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'adb-'));
   try {
     const write = (name, topic) =>

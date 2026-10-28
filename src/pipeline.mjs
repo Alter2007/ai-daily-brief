@@ -5,7 +5,7 @@ import { join, resolve, dirname } from 'node:path';
 import {
   readJson, writeText, parseTopic, score, fingerprint, loadSeen,
   renderWechat, renderMd, pickTag, sourceAllowed, selectItems, ymd, stripBom,
-  recentSnapshots,
+  recentSnapshots, isWeakSummary,
 } from './lib.mjs';
 import { COLLECTORS } from './sources.mjs';
 import { resolveKey, enrich } from './llm.mjs';
@@ -226,6 +226,7 @@ export async function runOnce(opts = {}) {
     items_kept: picked.length,
     skipped_duplicates: skipped.length,
     recall_items: recall.length,
+    weak_summary_items: picked.filter((it) => isWeakSummary(it.summary)).length,
     min_score: minScore,
     duration_ms: duration,
     output: wechatPath,

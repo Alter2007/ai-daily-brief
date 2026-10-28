@@ -293,6 +293,15 @@ export async function mapLimit(arr, limit, fn) {
   return out;
 }
 
+/** 摘要是否属于「有等于没有」：占位串、过短、或只剩一个链接 */
+export function isWeakSummary(s) {
+  const t = String(s || '').trim();
+  if (t.length < 12) return true;
+  if (/^点击查看原文[>》]?$/.test(t)) return true;
+  if (/^https?:\/\/\S+$/.test(t)) return true;
+  return false;
+}
+
 export function renderWechat(items, meta) {
   const recall = !!meta.recall;
   const head = recall
@@ -305,7 +314,7 @@ export function renderWechat(items, meta) {
       const mark = recall ? '♻️' : `${i + 1}️⃣`;
       return [
         `${mark} ${it.title}（${md(new Date(it.date))}）#${tag}${warn}`,
-        `💡 重要：${it.why || it.summary || '—'}`,
+        `💡 重要：${it.why || (isWeakSummary(it.summary) ? '⚠️ 原文摘要缺失，点开链接看全文' : it.summary)}`,
         `👥 谁关注：${it.who || meta.audience}`,
         `🔗 ${it.org} · ${it.url}`,
       ].join('\n');
@@ -328,7 +337,7 @@ export function renderMd(items, meta) {
     lines.push(
       `## ${it.title}${it.breaking ? ' ⚠️ 破坏性变更' : ''}`,
       '',
-      `- **为什么重要**：${it.why || it.summary || '—'}`,
+      `- **为什么重要**：${it.why || (isWeakSummary(it.summary) ? '⚠️ 原文摘要缺失，点开链接看全文' : it.summary)}`,
       `- **谁该看**：${it.who || meta.audience}`,
       `- **来源**：${it.org} · <${it.url}>`,
       `- **分数**：${it.score}`,
