@@ -495,7 +495,7 @@ async function loadState() {
       rb.textContent = `运行中 ${secs}s…`;
       rb.disabled = true;
     } else if (rb.disabled && /运行中/.test(rb.textContent)) {
-      rb.textContent = "获取简报";
+      rb.textContent = "搜索";
       rb.disabled = false;
     }
   }
