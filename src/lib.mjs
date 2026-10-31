@@ -164,7 +164,8 @@ const TAG_RULES = [
   ['技术', ['开源', '论文', '模型', 'benchmark', '上下文', '框架', '推理', '训练', 'feat',
     'model', 'inference', 'chip', 'gpu', 'training', 'agent', 'research', 'conjecture']],
   ['行业', ['收购', '融资', '合作', '投资', '席位', '全员', '生态', '联盟', '基金会',
-    'raise', 'funding', 'acquisition', 'partnership', 'invest', 'valuation', 'ipo', 'deal', 'backs', 'series a']],
+    'raise', 'funding', 'acquisition', 'partnership', 'invest', 'valuation', 'ipo', 'deal', 'backs', 'series a',
+    'adoption', 'roi', 'pilot', 'enterprise', 'customer', 'case study', 'workflow']],
 ];
 
 export function pickTag(item) {

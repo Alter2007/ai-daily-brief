@@ -23,10 +23,13 @@ exclude: arxiv, repo, community
 中文：发布 上线 开源 收购 融资 集成 合作 定价 免费 涨价 降价 监管 立法 漏洞 泄露 停服 下线 裁员 模型 智能体 算力 芯片
 English：release launch open+source acquire acquisition funding partnership pricing free model api agent benchmark rollout enterprise adoption deal regulation vulnerability lawsuit layoff chip gpu inference
 
-## 减分词（命中 −10，疑似传闻降权）
+## 减分词（命中 −25，直接压到门槛以下）
 
-中文：传闻 据悉 据说 或将 疑似 未证实 爆料
-English：rumor reportedly unconfirmed allegedly leak
+> 两类：① 传闻（没有一手来源）② 生活类/消费类内容（不属行业情报）。
+> 2026-10-31 实测：TechCrunch 一篇「万圣节装扮」因正文含 vulnerability 被误判成 #风险 选进简报。
+
+中文：传闻 据悉 据说 或将 疑似 未证实 爆料 万圣节 装扮 礼物清单 促销 优惠券 折扣 购物
+English：rumor reportedly unconfirmed allegedly gift guide giftguide halloween costume costumes trick-or-treat prime day black friday cyber monday discount coupon shopping list
 
 ## 一手源加成
 
