@@ -294,6 +294,22 @@ export async function mapLimit(arr, limit, fn) {
   return out;
 }
 
+/** 关键词搜索：把 "a b,c" 拆成词，命中了任意一个（标题或摘要）就留下 */
+export function splitQuery(q) {
+  return String(q || '')
+    .trim()
+    .split(/[\s,，、]+/)
+    .filter(Boolean);
+}
+
+export function filterByQuery(items, terms) {
+  if (!terms || !terms.length) return items;
+  return items.filter((it) => {
+    const t = (it.title + ' ' + (it.summary || '')).toLowerCase();
+    return terms.some((w) => t.includes(w.toLowerCase()));
+  });
+}
+
 /** 摘要是否属于「有等于没有」：占位串、过短、或只剩一个链接 */
 export function isWeakSummary(s) {
   const t = String(s || '').trim();

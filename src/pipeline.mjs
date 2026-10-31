@@ -5,7 +5,7 @@ import { join, resolve, dirname } from 'node:path';
 import {
   readJson, writeText, parseTopic, score, fingerprint, loadSeen,
   renderWechat, renderMd, pickTag, sourceAllowed, selectItems, ymd, stripBom,
-  recentSnapshots, isWeakSummary,
+  recentSnapshots, isWeakSummary, splitQuery, filterByQuery,
 } from './lib.mjs';
 import { COLLECTORS } from './sources.mjs';
 import { resolveKey, enrich } from './llm.mjs';
@@ -97,7 +97,11 @@ export async function runOnce(opts = {}) {
     return Number.isFinite(t) ? t >= cutoff : true;
   });
 
-  const { scored, picked, skipped } = selectItems(filtered, {
+  // 关键词搜索：给了 query 就只在标题/摘要里匹配到词的条目中挑选
+  const queryTerms = splitQuery(opts.query);
+  const searched = filterByQuery(filtered, queryTerms);
+
+  const { scored, picked, skipped } = selectItems(searched, {
     seen,
     maxItems,
     minScore,
@@ -143,11 +147,16 @@ export async function runOnce(opts = {}) {
     minScore,
     llmOk: llm.ok,
     llmModel: llm.model,
+    query: queryTerms.join(' ') || null,
   };
 
   // 本地日期：toISOString 是 UTC，早于 08:00 会把文件名写成前一天
   const stamp = ymd(meta.date);
-  const defaultName = dryRun ? `_dryrun-${topic}-wechat.md` : `${stamp}-${topic}-wechat.md`;
+  // 搜索模式单独命名，避免覆盖当天的常规简报
+  const slug = queryTerms.length
+    ? '-q-' + queryTerms.join('_').replace(/[^\w\u4e00-\u9fa5-]/g, '').slice(0, 24)
+    : '';
+  const defaultName = dryRun ? `_dryrun-${topic}${slug}-wechat.md` : `${stamp}-${topic}${slug}-wechat.md`;
   const wechatPath = opts.outPath
     ? (opts.outPath.startsWith(root) ? opts.outPath : join(root, opts.outPath))
     : join(root, app.output?.dir || 'output', defaultName);
@@ -227,6 +236,8 @@ export async function runOnce(opts = {}) {
     skipped_duplicates: skipped.length,
     recall_items: recall.length,
     weak_summary_items: picked.filter((it) => isWeakSummary(it.summary)).length,
+    query: queryTerms.join(' ') || null,
+    query_matched: queryTerms.length ? searched.length : null,
     min_score: minScore,
     duration_ms: duration,
     output: wechatPath,

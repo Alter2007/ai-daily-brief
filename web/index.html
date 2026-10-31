@@ -172,10 +172,10 @@
       </div>
       <div class="bar">
         <div class="field">
-          <input id="q" placeholder="粘贴链接或关键词，立刻单独抓一条…">
+          <input id="q" placeholder="输入关键词搜索，如 Gemini、融资、开源；留空则拉取今日简报">
         </div>
-        <button class="btn" id="runBtn">获取简报</button>
-        <button class="btn dark" id="copyAll">复制全文</button>
+        <button class="btn" id="dailyBtn">今日简报</button>
+        <button class="btn dark" id="runBtn">搜索</button>
       </div>
       <div class="toolbar">
         <div class="crumb">
@@ -196,6 +196,7 @@
       <div class="bottom">
         <div class="stat" id="footStat">窗口 10-21 → 10-24 · 信源 4 试 2 成 · 5 条</div>
         <div class="spacer"></div>
+        <button class="btn" id="copyAll">复制全文</button>
         <button class="btn" id="export">导出 Markdown</button>
         <button class="btn dark" id="push">推送企业微信</button>
       </div>
@@ -538,26 +539,39 @@ async function loadState() {
   renderList(); renderRuns(); renderSources();
 }
 
-$("#runBtn").onclick = async () => {
-  const btn = $("#runBtn");
+/* 运行一次：带关键词 = 搜索，留空 = 拉今日简报 */
+async function runOnce(btn, query) {
   if (document.body.dataset.mode !== "live") return;
-  const old = "获取简报";
-  btn.textContent = "运行中…";
+  const old = btn.textContent;
+  btn.textContent = query ? "搜索中…" : "抓取中…";
   btn.disabled = true;
   try {
     const r = await fetch("/api/run", {
-      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(query ? { q: query } : {}),
     });
     const j = await r.json();
     if (r.status === 409) btn.textContent = "已在运行";
     else if (!j.ok) btn.textContent = j.status === "all_sources_failed" ? "信源全挂" : "失败";
-    else btn.textContent = j.llm?.ok ? `完成 ${j.stats?.kept ?? 0} 条 · 已生成摘要` : `完成 ${j.stats?.kept ?? 0} 条`;
+    else {
+      const n = j.stats?.kept ?? 0;
+      const hits = j.stats?.queryMatched;
+      const tail = query ? `命中 ${hits ?? "-"} 条` : `${n} 条`;
+      btn.textContent = j.llm?.ok ? `${tail} · 已生成摘要` : tail;
+    }
     await loadState();
   } catch {
     btn.textContent = "运行失败";
   }
-  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2400);
-};
+  setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 2600);
+}
+
+$("#runBtn").onclick = () => runOnce($("#runBtn"), ($("#q")?.value || "").trim());
+$("#dailyBtn").onclick = () => runOnce($("#dailyBtn"), "");
+$("#q")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") runOnce($("#runBtn"), ($("#q").value || "").trim());
+});
 
 addEventListener("keydown", (e) => {
   if ((e.key === "r" || e.key === "R") && !e.ctrlKey) loadState();

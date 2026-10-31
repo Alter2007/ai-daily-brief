@@ -227,6 +227,7 @@ const server = http.createServer(async (req, res) => {
 
       RUNNING = { startedAt: Date.now(), topic: opts.topic || null };
       const started = Date.now();
+      const query = String(opts.q || opts.query || '').trim();
       try {
         const out = await runOnce({
           root,
@@ -234,14 +235,16 @@ const server = http.createServer(async (req, res) => {
           days: opts.days,
           dryRun: opts.dryRun ?? DRY,
           llm: opts.llm,
-          trigger: 'panel',
+          query,
+          trigger: query ? 'search' : 'panel',
         });
         return json(res, out.ok ? 200 : 502, {
           ok: out.ok,
           status: out.status,
+          query: query || null,
           error: out.ok ? undefined : '全部信源不可用，已记录到 logs/_failed-*.json',
           elapsed: Date.now() - started,
-          stats: out.stats,
+          stats: { ...out.stats, queryMatched: out.log?.query_matched ?? null },
           llm: out.llm,
           items: out.items.map((i) => ({ title: i.title, score: i.score, url: i.url, why: i.why, who: i.who })),
           failures: out.failures,

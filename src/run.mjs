@@ -17,7 +17,8 @@ const res = await runOnce({
   dryRun: flag('dry-run'),
   onlySources: (arg('source') || '').split(',').filter(Boolean),
   outPath: arg('out'),
-  trigger: 'manual',
+  query: arg('q') || arg('query'),
+  trigger: arg('q') ? 'search' : 'manual',
 });
 
 const { meta, stats, failures, items, paths } = res;
@@ -25,6 +26,7 @@ const rel = (p) => p.replace(process.cwd() + '\\', '').replace(process.cwd() + '
 console.log(`主题      ${meta.topicName}（${meta.topic}）${flag('dry-run') ? ' [dry-run]' : ''}`);
 console.log(`窗口      ${meta.windowDays} 天｜上限 ${meta.maxItems} 条｜门槛 ${meta.minScore} 分`);
 console.log(`信源      ${stats.tried} 试 / ${stats.okSources} 成${failures.length ? ' / 失败 ' + failures.length : ''}`);
+if (meta.query) console.log(`搜索词    ${meta.query}｜命中 ${res.log?.query_matched ?? '-'} 条`);
 failures.forEach((f) => console.log(`  ✗ ${f.source}: ${f.error}`));
 console.log(`候选      ${stats.candidates} 条 → 过门槛 ${stats.scoredPass} → 采用 ${stats.kept}`);
 items.forEach((p, i) => console.log(`  ${i + 1}. [${p.score}] ${p.title.slice(0, 60)}`));

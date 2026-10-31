@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems, ymd, mapLimit, recentSnapshots, isWeakSummary } from '../src/lib.mjs';
+import { strip, parseFeed, parseTopic, score, sourceAllowed, fingerprint, hasBreaking, selectItems, ymd, mapLimit, recentSnapshots, isWeakSummary, splitQuery, filterByQuery } from '../src/lib.mjs';
 import { resolveKey } from '../src/llm.mjs';
 import { collectGithub } from '../src/sources.mjs';
 import { runOnce } from '../src/pipeline.mjs';
@@ -260,6 +260,29 @@ test('mapLimit 保持顺序且并发不超过上限', async () => {
 });
 
 /* ---------------- 回顾与归档 ---------------- */
+
+/* ---------------- 搜索 ---------------- */
+
+test('splitQuery 支持中英文分隔符', () => {
+  assert.deepEqual(splitQuery('Gemini 开源'), ['Gemini', '开源']);
+  assert.deepEqual(splitQuery('a,b，c、d'), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(splitQuery('   '), []);
+  assert.deepEqual(splitQuery(null), []);
+});
+
+test('filterByQuery 命中标题或摘要，空词返回原列表', () => {
+  const items = [
+    { title: 'Gemini 4 Carbon released', summary: 'frontier model' },
+    { title: 'OpenAI 开源新模型', summary: 'MIT license' },
+    { title: 'Unrelated finance news', summary: 'funding round' },
+  ];
+  assert.equal(filterByQuery(items, []).length, 3, '无关键词不过滤');
+  assert.equal(filterByQuery(items, splitQuery('gemini')).length, 1, '大小写不敏感');
+  assert.equal(filterByQuery(items, splitQuery('开源')).length, 1, '中文命中标题');
+  assert.equal(filterByQuery(items, splitQuery('MIT')).length, 1, '命中摘要');
+  assert.equal(filterByQuery(items, splitQuery('gemini 开源')).length, 2, '多词取并集');
+  assert.equal(filterByQuery(items, splitQuery('nothing')).length, 0);
+});
 
 /* ---------------- 摘要质量 ---------------- */
 
